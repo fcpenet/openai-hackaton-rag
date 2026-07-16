@@ -7,7 +7,11 @@ not scrape retailers or manufacturer websites.
 ## Run locally
 
 1. Copy `.env.example` to `.env` and set your Turso credentials for persistence.
-2. Load the values into your shell, then run `npm start`.
+2. Load the values into your shell, then run `npm start`:
+
+```sh
+set -a; source .env; set +a
+```
 3. Search with:
 
 ```sh
