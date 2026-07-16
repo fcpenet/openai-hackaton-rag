@@ -7,10 +7,11 @@ not scrape retailers or manufacturer websites.
 ## Run locally
 
 1. Copy `.env.example` to `.env` and set your Turso credentials for persistence.
-2. Run the Vercel dev server (serves the `api/` functions locally):
+2. Load the values into your shell, then run `npm start`:
 
 ```sh
-npm run dev
+set -a; source .env; set +a
+npm start
 ```
 3. Search with:
 
@@ -26,10 +27,8 @@ Run tests with `npm test`.
 
 ## Deploy to Vercel
 
-Vercel automatically deploys JavaScript files under `api/` as Functions. These
-handlers use the Web `Request`/`Response` API and run on the Edge runtime
-(`export const config = { runtime: "edge" }`), which is why the catalog uses the
-`@libsql/client/web` client. This project exposes its API at
+Vercel runs this project as a Node.js server, using `src/server.js` as the
+entrypoint (declared via `package.json` `"main"`). The server exposes its API at
 `/api/products/search` and `/api/products/stream`; no `vercel.json` file is
 required.
 
