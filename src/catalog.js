@@ -1,38 +1,50 @@
-import { TtlCache } from "./cache.js";
+import { createClient } from "@libsql/client";
 
-const memory = new TtlCache();
-const DAY = 24 * 60 * 60_000;
+const setupSql = `
+  CREATE TABLE IF NOT EXISTS product_collections (
+    query TEXT PRIMARY KEY,
+    products_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )
+`;
 
 export class Catalog {
-  constructor({ redisUrl = process.env.CATALOG_REDIS_REST_URL, redisToken = process.env.CATALOG_REDIS_REST_TOKEN, fetchImpl = fetch } = {}) {
-    this.redisUrl = redisUrl?.replace(/\/$/, "");
-    this.redisToken = redisToken;
-    this.fetch = fetchImpl;
+  constructor({ client } = {}) {
+    this.client = client || this.#createClient();
+    this.setup = null;
   }
 
   async get(query) {
-    const key = this.#key(query);
-    if (!this.redisUrl || !this.redisToken) return memory.get(key);
-    const response = await this.fetch(`${this.redisUrl}/get/${encodeURIComponent(key)}`, {
-      headers: { authorization: `Bearer ${this.redisToken}` }
+    await this.#ensureSetup();
+    const result = await this.client.execute({
+      sql: "SELECT products_json FROM product_collections WHERE query = ?",
+      args: [this.#key(query)]
     });
-    if (!response.ok) throw new Error(`Catalog store read failed (${response.status})`);
-    const { result } = await response.json();
-    return result ? JSON.parse(result) : undefined;
+    return result.rows[0] ? JSON.parse(result.rows[0].products_json) : undefined;
   }
 
   async set(query, products) {
-    const key = this.#key(query);
-    if (!this.redisUrl || !this.redisToken) return memory.set(key, products, 30 * DAY);
-    const value = encodeURIComponent(JSON.stringify(products));
-    const response = await this.fetch(`${this.redisUrl}/set/${encodeURIComponent(key)}/${value}?EX=${30 * 24 * 60 * 60}`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${this.redisToken}` }
+    await this.#ensureSetup();
+    await this.client.execute({
+      sql: `INSERT INTO product_collections (query, products_json, created_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(query) DO UPDATE SET products_json = excluded.products_json, created_at = excluded.created_at`,
+      args: [this.#key(query), JSON.stringify(products), new Date().toISOString()]
     });
-    if (!response.ok) throw new Error(`Catalog store write failed (${response.status})`);
   }
 
   #key(query) {
     return `products:v1:${query.trim().toLowerCase().replace(/\s+/g, " ")}`;
+  }
+
+  #createClient() {
+    const { TURSO_DATABASE_URL: url, TURSO_AUTH_TOKEN: authToken } = process.env;
+    if (!url || !authToken) throw new Error("TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be configured");
+    return createClient({ url, authToken });
+  }
+
+  async #ensureSetup() {
+    if (!this.setup) this.setup = this.client.execute(setupSql);
+    await this.setup;
   }
 }
