@@ -1,4 +1,4 @@
-import { createClient } from "@libsql/client";
+import { createClient } from "@libsql/client/web";
 
 const setupSql = `
   CREATE TABLE IF NOT EXISTS product_collections (

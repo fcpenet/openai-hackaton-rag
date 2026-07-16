@@ -7,15 +7,15 @@ not scrape retailers or manufacturer websites.
 ## Run locally
 
 1. Copy `.env.example` to `.env` and set your Turso credentials for persistence.
-2. Load the values into your shell, then run `npm start`:
+2. Run the Vercel dev server (serves the `api/` functions locally):
 
 ```sh
-set -a; source .env; set +a
+npm run dev
 ```
 3. Search with:
 
 ```sh
-curl 'http://localhost:3000/v1/products/search?q=wireless%20headphones&limit=12'
+curl 'http://localhost:3000/api/products/search?q=wireless%20headphones&limit=12'
 ```
 
 The first request searches Wikidata, stores normalized items in Turso, and
@@ -26,9 +26,12 @@ Run tests with `npm test`.
 
 ## Deploy to Vercel
 
-Vercel automatically deploys JavaScript files under `api/` as Node.js Functions.
-This project exposes its API at `/api/products/search` and
-`/api/products/stream`; no `vercel.json` file is required.
+Vercel automatically deploys JavaScript files under `api/` as Functions. These
+handlers use the Web `Request`/`Response` API and run on the Edge runtime
+(`export const config = { runtime: "edge" }`), which is why the catalog uses the
+`@libsql/client/web` client. This project exposes its API at
+`/api/products/search` and `/api/products/stream`; no `vercel.json` file is
+required.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.
