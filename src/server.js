@@ -5,8 +5,13 @@ import { createProductImage, createReviewSummary } from "./product-presentation.
 import { WikidataProvider } from "./wikidata.js";
 
 const port = Number(process.env.PORT || 3000);
-const catalog = new Catalog();
 const wikidata = new WikidataProvider();
+let catalog;
+
+function getCatalog() {
+  catalog ||= new Catalog();
+  return catalog;
+}
 
 function json(response, status, body, headers = {}) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
@@ -21,6 +26,7 @@ function parseSearch(url) {
 }
 
 async function resolveCollection(query, limit) {
+  const catalog = getCatalog();
   const cached = await catalog.get(query);
   const sourceCollection = cached || (await wikidata.search(query, 50));
   let changed = !cached;
