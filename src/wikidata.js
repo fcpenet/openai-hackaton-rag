@@ -8,7 +8,8 @@ function simulatedPrice(id) {
 }
 
 export class WikidataProvider {
-  constructor({ fetchImpl = fetch } = {}) {
+  constructor({ fetchImpl = globalThis.fetch } = {}) {
+    if (!fetchImpl) throw new Error("fetch is not available in this runtime");
     this.fetch = fetchImpl;
   }
 

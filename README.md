@@ -30,7 +30,8 @@ Run tests with `npm test`.
 Vercel uses `src/app.js` as its Node server entrypoint and deploys the functions
 in `api/products/`, which delegate to the shared handlers in
 `src/product-api.js`. The API is available at `/api/products/search` and
-`/api/products/stream`; no `vercel.json` file is required.
+`/api/products/stream`; no `vercel.json` file is required. OpenAPI JSON is
+available at `/openapi.json`, and the Swagger UI page is at `/docs`.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.

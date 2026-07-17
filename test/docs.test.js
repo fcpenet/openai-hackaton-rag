@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { handleRequest } from "../src/product-api.js";
+
+function createResponse() {
+  return {
+    statusCode: 0,
+    headers: {},
+    body: "",
+    writeHead(status, headers) {
+      this.statusCode = status;
+      this.headers = headers;
+    },
+    end(body = "") {
+      this.body = body;
+    }
+  };
+}
+
+test("serves OpenAPI document and docs page", async () => {
+  const openApiResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/openapi.json", headers: { host: "localhost:3000" } }, openApiResponse);
+  assert.equal(openApiResponse.statusCode, 200);
+  const openApi = JSON.parse(openApiResponse.body);
+  assert.equal(openApi.openapi, "3.0.3");
+  assert.ok(openApi.paths["/api/products/search"]);
+  assert.ok(openApi.components.schemas.Product);
+
+  const docsResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/docs", headers: { host: "localhost:3000" } }, docsResponse);
+  assert.equal(docsResponse.statusCode, 200);
+  assert.match(docsResponse.body, /SwaggerUIBundle/);
+  assert.match(docsResponse.body, /\/openapi\.json/);
+});
