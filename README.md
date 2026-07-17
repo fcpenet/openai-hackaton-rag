@@ -28,7 +28,7 @@ Run tests with `npm test`.
 ## Deploy to Vercel
 
 Vercel deploys the functions in `api/products/`, which delegate to the shared
-handlers in `src/server.js`. The API is available at `/api/products/search` and
+handlers in `src/product-api.js`. The API is available at `/api/products/search` and
 `/api/products/stream`; no `vercel.json` file is required. The `main` package
 field is intentionally omitted so Vercel only deploys the API functions.
 
