@@ -46,36 +46,66 @@ export function createProductImage(title, description) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function createReviewText(random, title, description, rating, index) {
-  const opener = pick(random, [
-    "Nice find",
-    "Solid choice",
-    "Happy with this",
-    "Works as expected",
-    "Good value"
-  ]);
+export function createReviewText(random, title, description, rating, index, mode) {
   const subject = title || description || "this item";
-  const detail = description ? `The ${description.toLowerCase()} detail was about what I expected.` : `It matched the listing and felt close to the photos.`;
-  const verdicts = {
-    1: ["Felt underwhelming.", "I would not buy this again.", "The fit and finish were disappointing."],
-    2: ["It did the job, but only barely.", "There were a few rough edges.", "I wish the quality had been better."],
-    3: ["It is decent overall.", "A few compromises, but usable.", "Good enough for everyday use."],
-    4: ["I would recommend it.", "Feels better than expected.", "A dependable pick for the price."],
-    5: ["Exceeded my expectations.", "I would happily buy it again.", "This one feels like a great find."]
-  };
+  const tone = mode === "alien"
+    ? {
+      detail: description ? `The ${description.toLowerCase()} aspect registered cleanly in my cranial buffer.` : `Its appearance aligned with the images on your earth marketplace.`,
+      opener: {
+        1: ["I attempted earth-approval and failed.", "My species would classify this as a regret.", "This object made my antennae droop."],
+        2: ["I remain polite, though only partly convinced.", "A serviceable artifact, but not celebrated in my home sector.", "My enthusiasm arrived late and left early."],
+        3: ["Human commerce has done adequately here.", "I can understand why earthlings tolerate it.", "A reasonably average specimen from your planet."],
+        4: ["I am learning your customs, and this helped.", "This item is extremely compatible with my earth disguise.", "A successful adaptation to human retail behavior."],
+        5: ["I have achieved near-total assimilation through this purchase.", "This is the kind of item that helps me pass as human.", "My disguise matrix is grateful for this one."]
+      },
+      closing: {
+        1: ["I will not be returning for another of these.", "My podmates advised me against it.", "This one failed the interstellar comfort test."],
+        2: ["I can survive with it, though barely.", "It remains below acceptable planetary standards.", "My approval bubbles are lukewarm."],
+        3: ["It is serviceable enough for earth integration.", "A normal outcome by human retail norms.", "I can see the appeal from a local perspective."],
+        4: ["I would recommend it to other visitors.", "A helpful tool for blending in.", "The earth disguise value is strong."],
+        5: ["I will report this back to the mothership as a success.", "A magnificent aid to human impersonation.", "This purchase may extend my stay on earth."]
+      },
+      firstAddendum: `It is the sort of ${subject.toLowerCase()} I need for my earth disguise.`,
+      otherAddendum: [
+        "My translator had no complaints.",
+        "The packaging looked very human.",
+        "It arrived before my cover was compromised.",
+        "Setup was simple enough for a visitor."
+      ]
+    }
+    : {
+      detail: description ? `The ${description.toLowerCase()} detail felt consistent with the listing and the photos.` : `It arrived with the same sort of polish I expected from the listing.`,
+      opener: {
+        1: ["I checked the listing twice and still felt disappointed.", "This landed in the wrong part of my day.", "The first impression was rough."],
+        2: ["It is usable, though the edges show.", "I kept hoping for a little more.", "The value is only partly there."],
+        3: ["It holds together as expected.", "A fair result for an ordinary purchase.", "Nothing flashy, but it behaves well."],
+        4: ["This makes a strong case for itself.", "A pleasant surprise for the price.", "It feels more capable than the listing suggested."],
+        5: ["This is one of the better purchases I have made.", "I would happily place this order again.", "It feels like the good kind of marketplace luck."]
+      },
+      closing: {
+        1: ["I would not repeat the purchase.", "It never quite came together.", "The quality missed the mark."],
+        2: ["I can make it work, but I would not praise it.", "It stays just above the line.", "I wanted cleaner execution."],
+        3: ["It is steady and serviceable.", "A normal outcome that does the job.", "I would call it acceptably ordinary."],
+        4: ["I would point a friend at it.", "A dependable pick for daily use.", "It earns its place easily."],
+        5: ["I would buy it again without hesitation.", "It feels like the sort of thing that ages well.", "A genuinely strong result."]
+      },
+      firstAddendum: `It is the sort of ${subject.toLowerCase()} I wanted on the first try.`,
+      otherAddendum: [
+        "The packaging stayed neat.",
+        "It arrived in good shape.",
+        "The finish matched the photos.",
+        "Setup was straightforward."
+      ]
+    };
 
-  const closing = pick(random, verdicts[rating]);
-  const addendum = index === 0 ? `It is the kind of ${subject.toLowerCase()} I wanted.` : pick(random, [
-    "Shipping was fast enough.",
-    "Packaging was clean and simple.",
-    "The color and finish matched the listing.",
-    "Setup was quick."
-  ]);
+  const opener = pick(random, tone.opener[rating]);
+  const closing = pick(random, tone.closing[rating]);
+  const addendum = index === 0 ? tone.firstAddendum : pick(random, tone.otherAddendum);
 
-  return `${opener}. ${detail} ${closing} ${addendum}`;
+  return `${opener} ${tone.detail} ${closing} ${addendum}`;
 }
 
-export function createReviews(id, title = "", description = "") {
+export function createReviews(id, title = "", description = "", { mode = "normal" } = {}) {
   const count = hash(`${id}:reviews`) % 251;
   if (count === 0) {
     return {
@@ -111,7 +141,7 @@ export function createReviews(id, title = "", description = "") {
         "Fine for the price",
         "Would buy again"
       ]),
-      body: createReviewText(random, title, description, rating, index),
+      body: createReviewText(random, title, description, rating, index, mode),
       createdAt
     };
   });

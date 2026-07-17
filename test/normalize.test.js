@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { WikidataProvider } from "../src/wikidata.js";
+import { createReviewText } from "../src/product-presentation.js";
+import { createIntergalacticCollection } from "../src/intergalactic-mart.js";
 
 test("normalizes Wikidata search results into simulated catalog items", async () => {
   const provider = new WikidataProvider({
@@ -26,4 +28,16 @@ test("normalizes Wikidata search results into simulated catalog items", async ()
     assert.match(review.createdAt, /^\d{4}-\d{2}-\d{2}T/);
   }
   assert.equal(product.source.license, "CC0");
+});
+
+test("keeps one-star reviews negative and secret mode alien", () => {
+  const negativeBody = createReviewText(() => 0, "Test Item", "a sample description", 1, 0, "normal");
+  assert.match(negativeBody, /(disappoint|rough|missed the mark|would not repeat|listing)/i);
+  assert.match(negativeBody, /(listing|photos|purchase)/i);
+
+  const [secretProduct] = createIntergalacticCollection("phone", 1);
+  assert.equal(secretProduct.source.provider, "intergalactic-mart");
+  assert.equal(secretProduct.price.currency, "GCR");
+  assert.ok(secretProduct.reviews.length > 0);
+  assert.match(secretProduct.reviews[0].body, /(earth|human|mothership|translator|disguise)/i);
 });

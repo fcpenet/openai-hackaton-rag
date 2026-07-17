@@ -1,5 +1,6 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { createIntergalacticCollection } from "./intergalactic-mart.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
 import { WikidataProvider } from "./wikidata.js";
 
@@ -8,7 +9,11 @@ let catalogPromise;
 let wikidataProvider;
 
 async function getCatalog() {
-  catalogPromise ||= import("./catalog.js").then(({ Catalog }) => new Catalog());
+  if (!catalogPromise) {
+    catalogPromise = import("./catalog.js")
+      .then(({ Catalog }) => new Catalog())
+      .catch(() => null);
+  }
   return catalogPromise;
 }
 
@@ -31,7 +36,8 @@ function parseSearch(url) {
   const query = url.searchParams.get("q")?.trim();
   const requestedLimit = Number(url.searchParams.get("limit") || 12);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 12, 1), 50);
-  return { query, limit };
+  const secretMode = url.searchParams.get("not-suspicious") === "Hum^n";
+  return { query, limit, secretMode };
 }
 
 function getOpenApiDocument() {
@@ -80,6 +86,13 @@ function getOpenApiDocument() {
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 50, default: 12 },
               description: "Maximum number of products to return"
+            },
+            {
+              name: "not-suspicious",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["Hum^n"] },
+              description: "Optional hidden toggle that switches to the intergalactic mart catalog"
             }
           ],
           responses: {
@@ -94,7 +107,7 @@ function getOpenApiDocument() {
                         type: "array",
                         items: { $ref: "#/components/schemas/Product" }
                       },
-                      source: { type: "string", enum: ["catalog", "wikidata"] },
+                      source: { type: "string", enum: ["catalog", "wikidata", "intergalactic-mart"] },
                       generatedOnDemand: { type: "boolean" }
                     },
                     required: ["products", "source", "generatedOnDemand"]
@@ -123,6 +136,12 @@ function getOpenApiDocument() {
               in: "query",
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 50, default: 12 }
+            },
+            {
+              name: "not-suspicious",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["Hum^n"] }
             }
           ],
           responses: {
@@ -145,6 +164,12 @@ function getOpenApiDocument() {
               in: "query",
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 50, default: 12 }
+            },
+            {
+              name: "not-suspicious",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["Hum^n"] }
             }
           ],
           responses: {
@@ -248,13 +273,14 @@ function getDocsHtml() {
 </html>`;
 }
 
-async function resolveCollection(query, limit) {
+async function resolveCollection(query, limit, secretMode = false) {
   const catalog = await getCatalog();
-  const cached = await catalog.get(query);
-  const sourceCollection = cached || (await getWikidataProvider().search(query, 50));
+  const collectionKey = `${secretMode ? "secret" : "normal"}:${query}`;
+  const cached = catalog ? await catalog.get(collectionKey) : undefined;
+  const sourceCollection = cached || (secretMode ? createIntergalacticCollection(query, 50) : await getWikidataProvider().search(query, 50));
   let changed = !cached;
   const collection = sourceCollection.map((product) => {
-    const reviews = createReviews(product.id, product.title, product.description);
+    const reviews = createReviews(product.id, product.title, product.description, { mode: secretMode ? "alien" : "normal" });
     const needsImage = !product.imageUrl;
     const needsReviews = !Array.isArray(product.reviews) || product.rating === undefined || product.reviewCount === undefined;
     if (!needsImage && !needsReviews) return product;
@@ -267,15 +293,19 @@ async function resolveCollection(query, limit) {
       reviews: product.reviews ?? reviews.reviews
     };
   });
-  if (changed) await catalog.set(query, collection);
-  return { products: collection.slice(0, limit), source: cached ? "catalog" : "wikidata", cached };
+  if (changed && catalog) await catalog.set(collectionKey, collection);
+  return {
+    products: collection.slice(0, limit),
+    source: cached ? "catalog" : (secretMode ? "intergalactic-mart" : "wikidata"),
+    cached
+  };
 }
 
 async function handleSearch(url, response) {
-  const { query, limit } = parseSearch(url);
+  const { query, limit, secretMode } = parseSearch(url);
   if (!query) return json(response, 400, { error: "q is required" });
   try {
-    const { products, source, cached } = await resolveCollection(query, limit);
+    const { products, source, cached } = await resolveCollection(query, limit, secretMode);
     return json(response, 200, { products, source, generatedOnDemand: !cached }, { "cache-control": "no-store" });
   } catch (error) {
     return json(response, 502, { error: error.message || "Product search failed" });
@@ -283,7 +313,7 @@ async function handleSearch(url, response) {
 }
 
 async function handleStream(url, response) {
-  const { query, limit } = parseSearch(url);
+  const { query, limit, secretMode } = parseSearch(url);
   if (!query) return json(response, 400, { error: "q is required" });
 
   response.writeHead(200, {
@@ -295,7 +325,7 @@ async function handleStream(url, response) {
 
   send("status", { phase: "searching", query });
   try {
-    const { products, source, cached } = await resolveCollection(query, limit);
+    const { products, source, cached } = await resolveCollection(query, limit, secretMode);
     send("status", { phase: cached ? "catalog-hit" : "sourced", query });
     for (const product of products) send("product", product);
     send("done", { count: products.length, source });
