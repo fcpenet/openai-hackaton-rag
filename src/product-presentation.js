@@ -7,6 +7,22 @@ function hash(value) {
   return result >>> 0;
 }
 
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(value ^ (value >>> 15), 1 | value);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pick(random, items) {
+  return items[Math.floor(random() * items.length)];
+}
+
+const reviewEpoch = Date.UTC(2024, 0, 1);
+
 function escapeXml(value) {
   return value.replace(/[<>&"']/g, (character) => ({
     "<": "&lt;", ">": "&gt;", "&": "&amp;", "\"": "&quot;", "'": "&apos;"
@@ -30,10 +46,84 @@ export function createProductImage(title, description) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function createReviewSummary(id) {
-  const count = hash(`${id}:reviews`) % 251;
-  return {
-    rating: count === 0 ? null : 1 + (hash(`${id}:rating`) % 5),
-    reviewCount: count
+function createReviewText(random, title, description, rating, index) {
+  const opener = pick(random, [
+    "Nice find",
+    "Solid choice",
+    "Happy with this",
+    "Works as expected",
+    "Good value"
+  ]);
+  const subject = title || description || "this item";
+  const detail = description ? `The ${description.toLowerCase()} detail was about what I expected.` : `It matched the listing and felt close to the photos.`;
+  const verdicts = {
+    1: ["Felt underwhelming.", "I would not buy this again.", "The fit and finish were disappointing."],
+    2: ["It did the job, but only barely.", "There were a few rough edges.", "I wish the quality had been better."],
+    3: ["It is decent overall.", "A few compromises, but usable.", "Good enough for everyday use."],
+    4: ["I would recommend it.", "Feels better than expected.", "A dependable pick for the price."],
+    5: ["Exceeded my expectations.", "I would happily buy it again.", "This one feels like a great find."]
   };
+
+  const closing = pick(random, verdicts[rating]);
+  const addendum = index === 0 ? `It is the kind of ${subject.toLowerCase()} I wanted.` : pick(random, [
+    "Shipping was fast enough.",
+    "Packaging was clean and simple.",
+    "The color and finish matched the listing.",
+    "Setup was quick."
+  ]);
+
+  return `${opener}. ${detail} ${closing} ${addendum}`;
+}
+
+export function createReviews(id, title = "", description = "") {
+  const count = hash(`${id}:reviews`) % 251;
+  if (count === 0) {
+    return {
+      rating: null,
+      reviewCount: 0,
+      reviews: []
+    };
+  }
+
+  const random = seededRandom(hash(`${id}:review-seed`));
+  const reviews = Array.from({ length: count }, (_, index) => {
+    const rating = 1 + Math.floor(random() * 5);
+    const ageDays = Math.floor(random() * 730);
+    const createdAt = new Date(reviewEpoch - ageDays * 24 * 60 * 60 * 1000).toISOString();
+    const author = pick(random, [
+      "Ava",
+      "Noah",
+      "Mia",
+      "Liam",
+      "Sofia",
+      "Ethan",
+      "Kai",
+      "Zara"
+    ]);
+    return {
+      id: `${id}:review:${index + 1}`,
+      author,
+      rating,
+      title: pick(random, [
+        "Worth it",
+        "Pretty good",
+        "Exactly what I needed",
+        "Fine for the price",
+        "Would buy again"
+      ]),
+      body: createReviewText(random, title, description, rating, index),
+      createdAt
+    };
+  });
+
+  return {
+    rating: Math.round(reviews.reduce((total, review) => total + review.rating, 0) / reviews.length),
+    reviewCount: count,
+    reviews
+  };
+}
+
+export function createReviewSummary(id, title = "", description = "") {
+  const { rating, reviewCount } = createReviews(id, title, description);
+  return { rating, reviewCount };
 }

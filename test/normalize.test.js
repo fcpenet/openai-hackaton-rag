@@ -13,7 +13,17 @@ test("normalizes Wikidata search results into simulated catalog items", async ()
   assert.equal(product.price.currency, "PHP");
   assert.equal(product.price.isSimulated, true);
   assert.match(product.imageUrl, /^data:image\/svg\+xml,/);
+  assert.ok(Array.isArray(product.reviews));
   assert.ok(product.reviewCount >= 0 && product.reviewCount <= 250);
+  assert.equal(product.reviewCount, product.reviews.length);
   assert.ok(product.rating === null || (product.rating >= 1 && product.rating <= 5));
+  for (const review of product.reviews) {
+    assert.equal(typeof review.id, "string");
+    assert.equal(typeof review.author, "string");
+    assert.ok(review.rating >= 1 && review.rating <= 5);
+    assert.equal(typeof review.title, "string");
+    assert.equal(typeof review.body, "string");
+    assert.match(review.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  }
   assert.equal(product.source.license, "CC0");
 });

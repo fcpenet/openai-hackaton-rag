@@ -1,5 +1,5 @@
 const API_URL = "https://www.wikidata.org/w/api.php";
-import { createProductImage, createReviewSummary } from "./product-presentation.js";
+import { createProductImage, createReviews } from "./product-presentation.js";
 
 function simulatedPrice(id) {
   let value = 0;
@@ -31,13 +31,14 @@ export class WikidataProvider {
     return search.map((item) => {
       const id = `wikidata:${item.id}`;
       const description = item.description || null;
+      const reviews = createReviews(id, item.label, description);
       return {
         id,
         title: item.label,
         description,
         category: "General merchandise",
         imageUrl: createProductImage(item.label, description),
-        ...createReviewSummary(id),
+        ...reviews,
         price: { amount: simulatedPrice(item.id), currency: "PHP", isSimulated: true },
         source: {
           provider: "wikidata",

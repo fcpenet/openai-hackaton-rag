@@ -1,7 +1,7 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { Catalog } from "./catalog.js";
-import { createProductImage, createReviewSummary } from "./product-presentation.js";
+import { createProductImage, createReviews } from "./product-presentation.js";
 import { WikidataProvider } from "./wikidata.js";
 
 const port = Number(process.env.PORT || 3000);
@@ -31,16 +31,17 @@ async function resolveCollection(query, limit) {
   const sourceCollection = cached || (await wikidata.search(query, 50));
   let changed = !cached;
   const collection = sourceCollection.map((product) => {
-    const reviews = createReviewSummary(product.id);
+    const reviews = createReviews(product.id, product.title, product.description);
     const needsImage = !product.imageUrl;
-    const needsReviews = product.rating === undefined || product.reviewCount === undefined;
+    const needsReviews = !Array.isArray(product.reviews) || product.rating === undefined || product.reviewCount === undefined;
     if (!needsImage && !needsReviews) return product;
     changed = true;
     return {
       ...product,
       imageUrl: product.imageUrl || createProductImage(product.title, product.description),
       rating: product.rating ?? reviews.rating,
-      reviewCount: product.reviewCount ?? reviews.reviewCount
+      reviewCount: product.reviewCount ?? reviews.reviewCount,
+      reviews: product.reviews ?? reviews.reviews
     };
   });
   if (changed) await catalog.set(query, collection);

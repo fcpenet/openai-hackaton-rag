@@ -54,6 +54,7 @@ titles, prices, stock, and images.
 ## Product presentation
 
 Every catalog item includes a deterministic inline SVG `imageUrl`, a `rating`
-from 1 to 5 when reviews exist, and a `reviewCount` from 0 to 250. These values
-are calculated from the stable Wikidata ID, so they remain unchanged when the
-same product is returned again.
+from 1 to 5 when reviews exist, a `reviewCount` from 0 to 250, and a full
+`reviews` array with synthetic review text. These values are calculated from
+the stable Wikidata ID, so they remain unchanged when the same product is
+returned again.
