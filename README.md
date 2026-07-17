@@ -27,10 +27,9 @@ Run tests with `npm test`.
 
 ## Deploy to Vercel
 
-Vercel runs this project as a Node.js server, using `src/server.js` as the
-entrypoint (declared via `package.json` `"main"`). The server exposes its API at
-`/api/products/search` and `/api/products/stream`; no `vercel.json` file is
-required.
+Vercel deploys the functions in `api/products/`, which delegate to the shared
+handlers in `src/server.js`. The API is available at `/api/products/search` and
+`/api/products/stream`; no `vercel.json` file is required.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.
@@ -50,3 +49,10 @@ This is intentionally a product-data stream, not an LLM stream. Add AI SDK when
 you introduce model work such as query interpretation, product comparisons, or
 grounded recommendations. The provider results remain the source of truth for
 titles, prices, stock, and images.
+
+## Product presentation
+
+Every catalog item includes a deterministic inline SVG `imageUrl`, a `rating`
+from 1 to 5 when reviews exist, and a `reviewCount` from 0 to 250. These values
+are calculated from the stable Wikidata ID, so they remain unchanged when the
+same product is returned again.

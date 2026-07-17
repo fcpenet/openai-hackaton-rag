@@ -12,5 +12,8 @@ test("normalizes Wikidata search results into simulated catalog items", async ()
   assert.equal(product.id, "wikidata:Q48493");
   assert.equal(product.price.currency, "PHP");
   assert.equal(product.price.isSimulated, true);
+  assert.match(product.imageUrl, /^data:image\/svg\+xml,/);
+  assert.ok(product.reviewCount >= 0 && product.reviewCount <= 250);
+  assert.ok(product.rating === null || (product.rating >= 1 && product.rating <= 5));
   assert.equal(product.source.license, "CC0");
 });

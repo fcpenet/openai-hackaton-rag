@@ -1,4 +1,5 @@
 const API_URL = "https://www.wikidata.org/w/api.php";
+import { createProductImage, createReviewSummary } from "./product-presentation.js";
 
 function simulatedPrice(id) {
   let value = 0;
@@ -27,20 +28,25 @@ export class WikidataProvider {
     if (!response.ok) throw new Error(`Wikidata search failed (${response.status})`);
     const { search = [] } = await response.json();
     const retrievedAt = new Date().toISOString();
-    return search.map((item) => ({
-      id: `wikidata:${item.id}`,
-      title: item.label,
-      description: item.description || null,
-      category: "General merchandise",
-      imageUrl: null,
-      price: { amount: simulatedPrice(item.id), currency: "PHP", isSimulated: true },
-      source: {
-        provider: "wikidata",
-        itemId: item.id,
-        url: item.concepturi,
-        retrievedAt,
-        license: "CC0"
-      }
-    })).filter((item) => item.title);
+    return search.map((item) => {
+      const id = `wikidata:${item.id}`;
+      const description = item.description || null;
+      return {
+        id,
+        title: item.label,
+        description,
+        category: "General merchandise",
+        imageUrl: createProductImage(item.label, description),
+        ...createReviewSummary(id),
+        price: { amount: simulatedPrice(item.id), currency: "PHP", isSimulated: true },
+        source: {
+          provider: "wikidata",
+          itemId: item.id,
+          url: item.concepturi,
+          retrievedAt,
+          license: "CC0"
+        }
+      };
+    }).filter((item) => item.title);
   }
 }

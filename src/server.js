@@ -1,5 +1,7 @@
 import http from "node:http";
+import { fileURLToPath } from "node:url";
 import { Catalog } from "./catalog.js";
+import { createProductImage, createReviewSummary } from "./product-presentation.js";
 import { WikidataProvider } from "./wikidata.js";
 
 const port = Number(process.env.PORT || 3000);
@@ -20,8 +22,22 @@ function parseSearch(url) {
 
 async function resolveCollection(query, limit) {
   const cached = await catalog.get(query);
-  const collection = cached || (await wikidata.search(query, 50));
-  if (!cached) await catalog.set(query, collection);
+  const sourceCollection = cached || (await wikidata.search(query, 50));
+  let changed = !cached;
+  const collection = sourceCollection.map((product) => {
+    const reviews = createReviewSummary(product.id);
+    const needsImage = !product.imageUrl;
+    const needsReviews = product.rating === undefined || product.reviewCount === undefined;
+    if (!needsImage && !needsReviews) return product;
+    changed = true;
+    return {
+      ...product,
+      imageUrl: product.imageUrl || createProductImage(product.title, product.description),
+      rating: product.rating ?? reviews.rating,
+      reviewCount: product.reviewCount ?? reviews.reviewCount
+    };
+  });
+  if (changed) await catalog.set(query, collection);
   return { products: collection.slice(0, limit), source: cached ? "catalog" : "wikidata", cached };
 }
 
@@ -60,7 +76,7 @@ async function handleStream(url, response) {
   }
 }
 
-const server = http.createServer(async (request, response) => {
+export async function handleRequest(request, response) {
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
     if (request.method === "GET" && url.pathname === "/health") return json(response, 200, { ok: true });
@@ -74,6 +90,9 @@ const server = http.createServer(async (request, response) => {
   } catch (error) {
     return json(response, 500, { error: error.message || "Internal server error" });
   }
-});
+}
 
-server.listen(port, () => console.log(`Product Discovery Service listening on http://localhost:${port}`));
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const server = http.createServer(handleRequest);
+  server.listen(port, () => console.log(`Product Discovery Service listening on http://localhost:${port}`));
+}
