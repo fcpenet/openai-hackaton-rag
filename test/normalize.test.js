@@ -31,6 +31,9 @@ test("keeps one-star reviews negative and secret mode alien", () => {
   assert.match(negativeBody, /(disappoint|rough|missed the mark|would not repeat|listing)/i);
   assert.match(negativeBody, /(listing|photos|purchase)/i);
 
+  const firstAlienBody = createReviewText(() => 0, "Test Item", "a sample description", 4, 0, "alien");
+  assert.match(firstAlienBody, /(first close look|first time|earth disguise|disturbingly practical)/i);
+
   const [secretProduct] = createIntergalacticCollection("phone", 1);
   assert.equal(secretProduct.source.provider, "intergalactic-mart");
   assert.equal(secretProduct.price.currency, "GCR");

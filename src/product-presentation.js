@@ -48,6 +48,7 @@ export function createProductImage(title, description) {
 
 export function createReviewText(random, title, description, rating, index, mode) {
   const subject = title || description || "this item";
+  const firstEncounter = mode === "alien" && index === 0;
   const tone = mode === "alien"
     ? {
       detail: description ? `The ${description.toLowerCase()} aspect registered cleanly in my cranial buffer.` : `Its appearance aligned with the images on your earth marketplace.`,
@@ -65,12 +66,14 @@ export function createReviewText(random, title, description, rating, index, mode
         4: ["I would recommend it to other visitors.", "A helpful tool for blending in.", "The earth disguise value is strong."],
         5: ["I will report this back to the mothership as a success.", "A magnificent aid to human impersonation.", "This purchase may extend my stay on earth."]
       },
-      firstAddendum: `It is the sort of ${subject.toLowerCase()} I need for my earth disguise.`,
+      firstAddendum: `This is my first close look at a ${subject.toLowerCase()}. It is disturbingly practical.`,
       otherAddendum: [
         "My translator had no complaints.",
         "The packaging looked very human.",
         "It arrived before my cover was compromised.",
-        "Setup was simple enough for a visitor."
+        "Setup was simple enough for a visitor.",
+        "I am still unsure why humans need this many buttons.",
+        "The item has a strong \"do not ask\" energy."
       ]
     }
     : {
@@ -94,13 +97,15 @@ export function createReviewText(random, title, description, rating, index, mode
         "The packaging stayed neat.",
         "It arrived in good shape.",
         "The finish matched the photos.",
-        "Setup was straightforward."
+        "Setup was straightforward.",
+        "I laughed at how normal it was, which is probably a good sign.",
+        "It has the sort of charm that sneaks up on you."
       ]
     };
 
   const opener = pick(random, tone.opener[rating]);
   const closing = pick(random, tone.closing[rating]);
-  const addendum = index === 0 ? tone.firstAddendum : pick(random, tone.otherAddendum);
+  const addendum = firstEncounter ? tone.firstAddendum : pick(random, tone.otherAddendum);
 
   return `${opener} ${tone.detail} ${closing} ${addendum}`;
 }
