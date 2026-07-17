@@ -1,6 +1,6 @@
 # Product Discovery Service
 
-An on-demand catalog service that seeds real-world product facts from Wikidata,
+An on-demand catalog service that generates product data from the search query,
 then returns the stored product collection on future matching searches. It does
 not scrape retailers or manufacturer websites.
 
@@ -19,9 +19,9 @@ npm start
 curl 'http://localhost:3000/api/products/search?q=wireless%20headphones&limit=12'
 ```
 
-The first request searches Wikidata, stores normalized items in Turso, and
-returns them. Later requests return the stored collection. Product prices are
-explicitly marked as simulated because Wikidata does not provide live offers.
+The first request generates normalized items from the query, stores them in
+Turso, and returns them. Later requests return the stored collection. Product
+prices are explicitly marked as simulated because the data is generated.
 
 Run tests with `npm test`.
 
@@ -51,13 +51,13 @@ they arrive rather than waiting to render the complete response.
 
 This is intentionally a product-data stream, not an LLM stream. Add AI SDK when
 you introduce model work such as query interpretation, product comparisons, or
-grounded recommendations. The provider results remain the source of truth for
-titles, prices, stock, and images.
+grounded recommendations. The generated product data remains the source of
+truth for titles, prices, stock, and images.
 
 ## Product presentation
 
 Every catalog item includes a deterministic inline SVG `imageUrl`, a `rating`
 from 1 to 5 when reviews exist, a `reviewCount` from 0 to 250, and a full
 `reviews` array with synthetic review text. These values are calculated from
-the stable Wikidata ID, so they remain unchanged when the same product is
+the search query and cached so they remain unchanged when the same product is
 returned again.

@@ -1,12 +1,11 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { createIntergalacticCollection } from "./intergalactic-mart.js";
+import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
-import { WikidataProvider } from "./wikidata.js";
 
 const port = Number(process.env.PORT || 3000);
 let catalogPromise;
-let wikidataProvider;
 
 async function getCatalog() {
   if (!catalogPromise) {
@@ -15,11 +14,6 @@ async function getCatalog() {
       .catch(() => null);
   }
   return catalogPromise;
-}
-
-function getWikidataProvider() {
-  wikidataProvider ||= new WikidataProvider({ fetchImpl: globalThis.fetch });
-  return wikidataProvider;
 }
 
 function json(response, status, body, headers = {}) {
@@ -46,7 +40,7 @@ function getOpenApiDocument() {
     info: {
       title: "Product Discovery Service",
       version: "0.1.0",
-      description: "On-demand product search and streaming API backed by Wikidata and Turso."
+      description: "On-demand product search and streaming API backed by Turso."
     },
     servers: [{ url: "/" }],
     paths: {
@@ -107,7 +101,7 @@ function getOpenApiDocument() {
                         type: "array",
                         items: { $ref: "#/components/schemas/Product" }
                       },
-                      source: { type: "string", enum: ["catalog", "wikidata", "intergalactic-mart"] },
+                      source: { type: "string", enum: ["catalog", "on-demand-catalog", "intergalactic-mart"] },
                       generatedOnDemand: { type: "boolean" }
                     },
                     required: ["products", "source", "generatedOnDemand"]
@@ -116,7 +110,7 @@ function getOpenApiDocument() {
               }
             },
             "400": { description: "Missing q parameter" },
-            "502": { description: "Upstream lookup failed" }
+            "502": { description: "Product generation failed" }
           }
         }
       },
@@ -277,7 +271,7 @@ async function resolveCollection(query, limit, secretMode = false) {
   const catalog = await getCatalog();
   const collectionKey = `${secretMode ? "secret" : "normal"}:${query}`;
   const cached = catalog ? await catalog.get(collectionKey) : undefined;
-  const sourceCollection = cached || (secretMode ? createIntergalacticCollection(query, 50) : await getWikidataProvider().search(query, 50));
+  const sourceCollection = cached || (secretMode ? createIntergalacticCollection(query, 50) : createOnDemandCollection(query, 50));
   let changed = !cached;
   const collection = sourceCollection.map((product) => {
     const reviews = createReviews(product.id, product.title, product.description, { mode: secretMode ? "alien" : "normal" });
@@ -296,7 +290,7 @@ async function resolveCollection(query, limit, secretMode = false) {
   if (changed && catalog) await catalog.set(collectionKey, collection);
   return {
     products: collection.slice(0, limit),
-    source: cached ? "catalog" : (secretMode ? "intergalactic-mart" : "wikidata"),
+    source: cached ? "catalog" : (secretMode ? "intergalactic-mart" : "on-demand-catalog"),
     cached
   };
 }

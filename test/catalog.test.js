@@ -13,7 +13,7 @@ test("persists and retrieves a normalized collection by query", async () => {
     }
   };
   const catalog = new Catalog({ client });
-  const products = [{ id: "wikidata:Q1", title: "Example" }];
+  const products = [{ id: "generated:Q1", title: "Example" }];
   await catalog.set("  Example  ", products);
   assert.deepEqual(await catalog.get("example"), products);
 });

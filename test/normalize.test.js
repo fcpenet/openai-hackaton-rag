@@ -1,17 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { WikidataProvider } from "../src/wikidata.js";
 import { createReviewText } from "../src/product-presentation.js";
 import { createIntergalacticCollection } from "../src/intergalactic-mart.js";
+import { createOnDemandCollection } from "../src/on-demand-catalog.js";
 
-test("normalizes Wikidata search results into simulated catalog items", async () => {
-  const provider = new WikidataProvider({
-    fetchImpl: async () => new Response(JSON.stringify({
-      search: [{ id: "Q48493", label: "iPhone", description: "smartphone line", concepturi: "https://www.wikidata.org/entity/Q48493" }]
-    }))
-  });
-  const [product] = await provider.search("iphone", 1);
-  assert.equal(product.id, "wikidata:Q48493");
+test("generates on-demand catalog items from the search query", () => {
+  const [product] = createOnDemandCollection("iphone", 1);
+  assert.match(product.id, /^generated:/);
   assert.equal(product.price.currency, "PHP");
   assert.equal(product.price.isSimulated, true);
   assert.match(product.imageUrl, /^data:image\/svg\+xml,/);
@@ -27,7 +22,8 @@ test("normalizes Wikidata search results into simulated catalog items", async ()
     assert.equal(typeof review.body, "string");
     assert.match(review.createdAt, /^\d{4}-\d{2}-\d{2}T/);
   }
-  assert.equal(product.source.license, "CC0");
+  assert.equal(product.source.provider, "on-demand-catalog");
+  assert.equal(product.source.license, "synthetic");
 });
 
 test("keeps one-star reviews negative and secret mode alien", () => {

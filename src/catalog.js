@@ -34,7 +34,7 @@ export class Catalog {
   }
 
   #key(query) {
-    return `products:v1:${query.trim().toLowerCase().replace(/\s+/g, " ")}`;
+    return `products:v2:${query.trim().toLowerCase().replace(/\s+/g, " ")}`;
   }
 
   #createClient() {
