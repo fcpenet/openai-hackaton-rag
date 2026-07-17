@@ -27,10 +27,10 @@ Run tests with `npm test`.
 
 ## Deploy to Vercel
 
-Vercel deploys the functions in `api/products/`, which delegate to the shared
-handlers in `src/product-api.js`. The API is available at `/api/products/search` and
-`/api/products/stream`; no `vercel.json` file is required. The `main` package
-field is intentionally omitted so Vercel only deploys the API functions.
+Vercel uses `src/app.js` as its Node server entrypoint and deploys the functions
+in `api/products/`, which delegate to the shared handlers in
+`src/product-api.js`. The API is available at `/api/products/search` and
+`/api/products/stream`; no `vercel.json` file is required.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.
