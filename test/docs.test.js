@@ -24,7 +24,13 @@ test("serves OpenAPI document and docs page", async () => {
   const openApi = JSON.parse(openApiResponse.body);
   assert.equal(openApi.openapi, "3.0.3");
   assert.ok(openApi.paths["/api/products/search"]);
+  assert.ok(openApi.paths["/api/users/register"]);
+  assert.ok(openApi.paths["/api/users/login"]);
+  assert.ok(openApi.paths["/api/users/me"]);
+  assert.ok(openApi.paths["/api/users/logout"]);
   assert.ok(openApi.components.schemas.Product);
+  assert.ok(openApi.components.schemas.User);
+  assert.ok(openApi.components.securitySchemes.bearerAuth);
 
   const docsResponse = createResponse();
   await handleRequest({ method: "GET", url: "/docs", headers: { host: "localhost:3000" } }, docsResponse);

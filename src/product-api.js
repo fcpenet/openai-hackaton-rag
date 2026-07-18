@@ -4,9 +4,11 @@ import { createIntergalacticCollection } from "./intergalactic-mart.js";
 import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
 import { buildCompareVerdicts, buildShelfRows, normalizePersona, repairGeneratedProduct } from "./product-intelligence.js";
+import { normalizeEmail, validateRegistration } from "./users.js";
 
 const port = Number(process.env.PORT || 3000);
 let catalogPromise;
+let userStorePromise;
 
 async function getCatalog() {
   if (!catalogPromise) {
@@ -17,6 +19,20 @@ async function getCatalog() {
   return catalogPromise;
 }
 
+async function getUserStore() {
+  if (!userStorePromise) {
+    userStorePromise = import("./users.js")
+      .then(({ UserStore }) => new UserStore())
+      .catch(() => null);
+  }
+  return userStorePromise;
+}
+
+// Keeps the HTTP layer independently testable without requiring a live Turso database.
+export function setUserStoreForTesting(store) {
+  userStorePromise = store ? Promise.resolve(store) : undefined;
+}
+
 function json(response, status, body, headers = {}) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
   response.end(JSON.stringify(body));
@@ -25,6 +41,84 @@ function json(response, status, body, headers = {}) {
 function html(response, status, body, headers = {}) {
   response.writeHead(status, { "content-type": "text/html; charset=utf-8", ...headers });
   response.end(body);
+}
+
+async function readJson(request) {
+  if (request.body && typeof request.body === "object" && !request[Symbol.asyncIterator]) return request.body;
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    if (Buffer.concat(chunks).length > 64 * 1024) throw new Error("Request body is too large");
+  }
+  if (!chunks.length) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    const error = new Error("Request body must be valid JSON");
+    error.status = 400;
+    throw error;
+  }
+}
+
+function bearerToken(request) {
+  const value = request.headers.authorization || request.headers.Authorization || "";
+  return /^Bearer\s+(.+)$/i.exec(value)?.[1]?.trim();
+}
+
+async function handleRegistration(request, response) {
+  const input = await readJson(request);
+  const validationError = validateRegistration(input);
+  if (validationError) return json(response, 400, { error: validationError });
+  const store = await getUserStore();
+  if (!store) return json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+  try {
+    const user = await store.register(input);
+    const login = await store.login({ email: input.email, password: input.password });
+    return json(response, 201, { user, token: login.token });
+  } catch (error) {
+    return json(response, error.code === "EMAIL_TAKEN" ? 409 : 502, { error: error.message || "Could not create user" });
+  }
+}
+
+async function handleLogin(request, response) {
+  const input = await readJson(request);
+  if (!normalizeEmail(input.email) || typeof input.password !== "string") return json(response, 400, { error: "Email and password are required" });
+  const store = await getUserStore();
+  if (!store) return json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+  try {
+    const login = await store.login(input);
+    if (!login) return json(response, 401, { error: "Invalid email or password" });
+    return json(response, 200, login);
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not sign in" });
+  }
+}
+
+async function handleCurrentUser(request, response) {
+  const token = bearerToken(request);
+  if (!token) return json(response, 401, { error: "Authentication required" });
+  const store = await getUserStore();
+  if (!store) return json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+  try {
+    const user = await store.getUserForToken(token);
+    if (!user) return json(response, 401, { error: "Authentication required" });
+    return json(response, 200, { user });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load user" });
+  }
+}
+
+async function handleLogout(request, response) {
+  const token = bearerToken(request);
+  if (!token) return json(response, 204, undefined);
+  const store = await getUserStore();
+  if (!store) return json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+  try {
+    await store.logout(token);
+    return json(response, 204, undefined);
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not sign out" });
+  }
 }
 
 function parseSearch(url) {
@@ -63,6 +157,49 @@ function getOpenApiDocument() {
               }
             }
           }
+        }
+      },
+      "/api/users/register": {
+        post: {
+          summary: "Create a user account",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RegisterInput" } } }
+          },
+          responses: {
+            "201": { description: "Account created", content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } } },
+            "409": { description: "Email already registered" }
+          }
+        }
+      },
+      "/api/users/login": {
+        post: {
+          summary: "Sign in and create a session",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/LoginInput" } } }
+          },
+          responses: {
+            "200": { description: "Signed in", content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } } },
+            "401": { description: "Invalid credentials" }
+          }
+        }
+      },
+      "/api/users/me": {
+        get: {
+          summary: "Get the current user",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Current user", content: { "application/json": { schema: { type: "object", properties: { user: { $ref: "#/components/schemas/User" } }, required: ["user"] } } } },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/users/logout": {
+        post: {
+          summary: "End the current session",
+          security: [{ bearerAuth: [] }],
+          responses: { "204": { description: "Signed out" } }
         }
       },
       "/api/products/search": {
@@ -301,7 +438,39 @@ function getOpenApiDocument() {
       }
     },
     components: {
+      securitySchemes: {
+        bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "session token" }
+      },
       schemas: {
+        RegisterInput: {
+          type: "object",
+          properties: {
+            email: { type: "string", format: "email" },
+            password: { type: "string", minLength: 8, format: "password" },
+            displayName: { type: "string", maxLength: 80 }
+          },
+          required: ["email", "password"]
+        },
+        LoginInput: {
+          type: "object",
+          properties: { email: { type: "string", format: "email" }, password: { type: "string", format: "password" } },
+          required: ["email", "password"]
+        },
+        User: {
+          type: "object",
+          properties: {
+            id: { type: "string", format: "uuid" },
+            email: { type: "string", format: "email" },
+            displayName: { type: "string" },
+            createdAt: { type: "string", format: "date-time" }
+          },
+          required: ["id", "email", "displayName", "createdAt"]
+        },
+        AuthResponse: {
+          type: "object",
+          properties: { user: { $ref: "#/components/schemas/User" }, token: { type: "string" } },
+          required: ["user", "token"]
+        },
         Product: {
           type: "object",
           properties: {
@@ -528,6 +697,10 @@ export async function handleRequest(request, response) {
     if (request.method === "GET" && url.pathname === "/health") return json(response, 200, { ok: true });
     if (request.method === "GET" && url.pathname === "/openapi.json") return json(response, 200, getOpenApiDocument(), { "cache-control": "no-store" });
     if (request.method === "GET" && url.pathname === "/docs") return html(response, 200, getDocsHtml(), { "cache-control": "no-store" });
+    if (request.method === "POST" && url.pathname === "/api/users/register") return handleRegistration(request, response);
+    if (request.method === "POST" && url.pathname === "/api/users/login") return handleLogin(request, response);
+    if (request.method === "POST" && url.pathname === "/api/users/logout") return handleLogout(request, response);
+    if (request.method === "GET" && url.pathname === "/api/users/me") return handleCurrentUser(request, response);
     if (request.method === "GET" && (url.pathname === "/api/products/search" || url.pathname === "/v1/products/search")) {
       return handleSearch(url, response);
     }
@@ -542,7 +715,7 @@ export async function handleRequest(request, response) {
     }
     return json(response, 404, { error: "Not found" });
   } catch (error) {
-    return json(response, 500, { error: error.message || "Internal server error" });
+    return json(response, error.status || 500, { error: error.message || "Internal server error" });
   }
 }
 

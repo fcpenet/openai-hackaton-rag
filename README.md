@@ -25,14 +25,34 @@ prices are explicitly marked as simulated because the data is generated.
 
 Run tests with `npm test`.
 
+## Users and authentication
+
+User accounts and sessions use the same Turso database as the catalog. The
+tables are created automatically on the first user request. Passwords are
+stored as salted PBKDF2-SHA-512 hashes; session tokens are stored only as
+SHA-256 hashes.
+
+Create an account (passwords must be at least 8 characters):
+
+```sh
+curl -X POST http://localhost:3000/api/users/register \
+  -H 'content-type: application/json' \
+  -d '{"email":"ada@example.com","password":"correct-horse-battery-staple","displayName":"Ada"}'
+```
+
+Sign in with `POST /api/users/login` and use the returned token in an
+`Authorization: Bearer <token>` header. `GET /api/users/me` returns the signed
+in user, and `POST /api/users/logout` invalidates that session token.
+
 ## Deploy to Vercel
 
 Vercel uses `src/app.js` as its Node server entrypoint and deploys the functions
-in `api/products/`, which delegate to the shared handlers in
+in `api/products/` and `api/users/`, which delegate to the shared handlers in
 `src/product-api.js`. The API is available at `/api/products/search`,
-`/api/products/stream`, `/api/products/shelf`, and `/api/products/compare`; no
-`vercel.json` file is required. OpenAPI JSON is available at `/openapi.json`,
-and the Swagger UI page is at `/docs`.
+`/api/products/stream`, `/api/products/shelf`, `/api/products/compare`,
+`/api/users/register`, `/api/users/login`, `/api/users/me`, and
+`/api/users/logout`; no `vercel.json` file is required. OpenAPI JSON is
+available at `/openapi.json`, and the Swagger UI page is at `/docs`.
 Add `not-suspicious=Hum^n` to switch the search, stream, shelf, and compare
 endpoints to the hidden intergalactic mart catalog.
 
