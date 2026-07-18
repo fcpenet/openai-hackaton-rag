@@ -102,9 +102,23 @@ async function handleCurrentUser(request, response) {
   try {
     const user = await store.getUserForToken(token);
     if (!user) return json(response, 401, { error: "Authentication required" });
-    return json(response, 200, { user });
+    return json(response, 200, { user, profile: await store.getProfile(user.id) });
   } catch (error) {
     return json(response, 502, { error: error.message || "Could not load user" });
+  }
+}
+
+async function handleProfileUpdate(request, response) {
+  const token = bearerToken(request);
+  if (!token) return json(response, 401, { error: "Authentication required" });
+  const store = await getUserStore();
+  if (!store) return json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+  try {
+    const user = await store.getUserForToken(token);
+    if (!user) return json(response, 401, { error: "Authentication required" });
+    return json(response, 200, { user, profile: await store.updateProfile(user.id, await readJson(request)) });
+  } catch (error) {
+    return json(response, error.status || 502, { error: error.message || "Could not update profile" });
   }
 }
 
@@ -126,8 +140,9 @@ function parseSearch(url) {
   const requestedLimit = Number(url.searchParams.get("limit") || 12);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 12, 1), 50);
   const secretMode = url.searchParams.get("not-suspicious") === "Hum^n";
-  const persona = secretMode ? "intergalactic" : normalizePersona(url.searchParams.get("persona") || "normal");
-  return { query, limit, secretMode, persona };
+  const requestedPersona = url.searchParams.get("persona");
+  const persona = secretMode ? "intergalactic" : normalizePersona(requestedPersona || "normal");
+  return { query, limit, secretMode, persona, hasExplicitPersona: Boolean(requestedPersona) };
 }
 
 function getOpenApiDocument() {
@@ -187,10 +202,20 @@ function getOpenApiDocument() {
       },
       "/api/users/me": {
         get: {
-          summary: "Get the current user",
+          summary: "Get the current user and profile",
           security: [{ bearerAuth: [] }],
           responses: {
-            "200": { description: "Current user", content: { "application/json": { schema: { type: "object", properties: { user: { $ref: "#/components/schemas/User" } }, required: ["user"] } } } },
+            "200": { description: "Current user", content: { "application/json": { schema: { $ref: "#/components/schemas/UserProfileResponse" } } } },
+            "401": { description: "Authentication required" }
+          }
+        },
+        put: {
+          summary: "Update the current user's discovery profile",
+          security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ProfileInput" } } } },
+          responses: {
+            "200": { description: "Profile updated", content: { "application/json": { schema: { $ref: "#/components/schemas/UserProfileResponse" } } } },
+            "400": { description: "Invalid profile" },
             "401": { description: "Authentication required" }
           }
         }
@@ -471,6 +496,27 @@ function getOpenApiDocument() {
           properties: { user: { $ref: "#/components/schemas/User" }, token: { type: "string" } },
           required: ["user", "token"]
         },
+        ProfileInput: {
+          type: "object",
+          properties: {
+            persona: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] },
+            budgetMin: { type: "integer", minimum: 0, description: "Minimum simulated price in PHP" },
+            budgetMax: { type: "integer", minimum: 0, description: "Maximum simulated price in PHP" },
+            preferredCategories: { type: "array", items: { type: "string" }, maxItems: 20 },
+            excludedCategories: { type: "array", items: { type: "string" }, maxItems: 20 }
+          }
+        },
+        Profile: {
+          allOf: [{ $ref: "#/components/schemas/ProfileInput" }],
+          type: "object",
+          properties: { updatedAt: { type: ["string", "null"], format: "date-time" } },
+          required: ["persona", "budgetMin", "budgetMax", "preferredCategories", "excludedCategories", "updatedAt"]
+        },
+        UserProfileResponse: {
+          type: "object",
+          properties: { user: { $ref: "#/components/schemas/User" }, profile: { $ref: "#/components/schemas/Profile" } },
+          required: ["user", "profile"]
+        },
         Product: {
           type: "object",
           properties: {
@@ -604,19 +650,58 @@ async function resolveCollection(query, limit, persona = "normal") {
   };
 }
 
-async function handleSearch(url, response) {
-  const { query, limit, persona } = parseSearch(url);
+async function resolvePersonalizedCollection(request, url, minimumLimit = 0) {
+  const search = parseSearch(url);
+  let profile;
+  if (!search.hasExplicitPersona && !search.secretMode) {
+    const token = bearerToken(request);
+    const store = token && await getUserStore();
+    const user = store && await store.getUserForToken(token);
+    if (user) profile = await store.getProfile(user.id);
+  }
+  const persona = profile?.persona || search.persona;
+  const result = await resolveCollection(search.query, 50, persona);
+  const products = profile ? tailorProducts(result.products, profile) : result.products;
+  return {
+    ...result,
+    products: products.slice(0, Math.max(search.limit, minimumLimit)),
+    persona,
+    query: search.query,
+    limit: search.limit,
+    provenance: { ...result.provenance, persona, profileApplied: Boolean(profile) }
+  };
+}
+
+function tailorProducts(products, profile) {
+  const preferred = new Set(profile.preferredCategories.map((category) => category.toLowerCase()));
+  const excluded = new Set(profile.excludedCategories.map((category) => category.toLowerCase()));
+  const allowed = products.filter((product) => !excluded.has(product.category.toLowerCase()));
+  const candidates = allowed.length ? allowed : products;
+  const budgetDistance = (amount) => {
+    if (profile.budgetMin !== null && amount < profile.budgetMin) return profile.budgetMin - amount;
+    if (profile.budgetMax !== null && amount > profile.budgetMax) return amount - profile.budgetMax;
+    return 0;
+  };
+  return [...candidates].sort((left, right) => {
+    const preference = Number(preferred.has(right.category.toLowerCase())) - Number(preferred.has(left.category.toLowerCase()));
+    return preference || budgetDistance(left.price.amount) - budgetDistance(right.price.amount);
+  });
+}
+
+async function handleSearch(request, url, response) {
+  const { query, limit } = parseSearch(url);
   if (!query) return json(response, 400, { error: "q is required" });
   try {
-    const { products, source, cached, provenance } = await resolveCollection(query, limit, persona);
+    const { products, source, cached, provenance, persona } = await resolvePersonalizedCollection(request, url);
     return json(response, 200, { products, source, generatedOnDemand: !cached, persona, provenance }, { "cache-control": "no-store" });
   } catch (error) {
     return json(response, 502, { error: error.message || "Product search failed" });
   }
 }
 
-async function handleStream(url, response) {
-  const { query, limit, persona } = parseSearch(url);
+async function handleStream(request, url, response) {
+  const { query, limit, persona: initialPersona } = parseSearch(url);
+  let persona = initialPersona;
   if (!query) return json(response, 400, { error: "q is required" });
 
   response.writeHead(200, {
@@ -628,7 +713,8 @@ async function handleStream(url, response) {
 
   send("status", { phase: "searching", query, persona });
   try {
-    const { products, source, cached, provenance } = await resolveCollection(query, limit, persona);
+    const { products, source, cached, provenance, persona: resolvedPersona } = await resolvePersonalizedCollection(request, url);
+    persona = resolvedPersona;
     send("status", { phase: cached ? "catalog-hit" : "sourced", query, persona });
     for (const product of products) send("product", product);
     send("done", { count: products.length, source, persona, provenance });
@@ -639,8 +725,9 @@ async function handleStream(url, response) {
   }
 }
 
-async function handleShelf(url, response) {
-  const { query, limit, persona } = parseSearch(url);
+async function handleShelf(request, url, response) {
+  const { query, limit, persona: initialPersona } = parseSearch(url);
+  let persona = initialPersona;
   if (!query) return json(response, 400, { error: "q is required" });
 
   response.writeHead(200, {
@@ -652,7 +739,8 @@ async function handleShelf(url, response) {
 
   send("status", { phase: "building-shelf", query, persona });
   try {
-    const { products, source, cached, provenance } = await resolveCollection(query, Math.max(limit, 12), persona);
+    const { products, source, cached, provenance, persona: resolvedPersona } = await resolvePersonalizedCollection(request, url, 12);
+    persona = resolvedPersona;
     const rows = buildShelfRows(products);
     for (const row of rows) {
       send("shelf-row", { ...row, persona, provenance, source, cached });
@@ -665,15 +753,17 @@ async function handleShelf(url, response) {
   }
 }
 
-async function handleCompare(url, response) {
-  const { query, limit, persona } = parseSearch(url);
+async function handleCompare(request, url, response) {
+  const { query, limit, persona: initialPersona } = parseSearch(url);
+  let persona = initialPersona;
   const requestedCount = Number(url.searchParams.get("count") || 4);
   const count = Math.min(Math.max(Number.isFinite(requestedCount) ? requestedCount : 4, 2), 4);
   const ids = url.searchParams.get("ids")?.split(",").map((id) => id.trim()).filter(Boolean) || [];
   if (!query) return json(response, 400, { error: "q is required" });
 
   try {
-    const { products, source, cached, provenance } = await resolveCollection(query, Math.max(limit, count), persona);
+    const { products, source, cached, provenance, persona: resolvedPersona } = await resolvePersonalizedCollection(request, url, count);
+    persona = resolvedPersona;
     const selected = ids.length
       ? products.filter((product) => ids.includes(product.id)).slice(0, count)
       : products.slice(0, count);
@@ -701,17 +791,18 @@ export async function handleRequest(request, response) {
     if (request.method === "POST" && url.pathname === "/api/users/login") return handleLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/users/logout") return handleLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/users/me") return handleCurrentUser(request, response);
+    if (request.method === "PUT" && url.pathname === "/api/users/me") return handleProfileUpdate(request, response);
     if (request.method === "GET" && (url.pathname === "/api/products/search" || url.pathname === "/v1/products/search")) {
-      return handleSearch(url, response);
+      return handleSearch(request, url, response);
     }
     if (request.method === "GET" && url.pathname === "/api/products/stream") {
-      return handleStream(url, response);
+      return handleStream(request, url, response);
     }
     if (request.method === "GET" && url.pathname === "/api/products/shelf") {
-      return handleShelf(url, response);
+      return handleShelf(request, url, response);
     }
     if (request.method === "GET" && url.pathname === "/api/products/compare") {
-      return handleCompare(url, response);
+      return handleCompare(request, url, response);
     }
     return json(response, 404, { error: "Not found" });
   } catch (error) {

@@ -6,6 +6,7 @@ import { handleRequest, setUserStoreForTesting } from "../src/product-api.js";
 function createUserClient() {
   const users = new Map();
   const sessions = new Map();
+  const profiles = new Map();
   return {
     async execute(statement) {
       if (typeof statement === "string") return { rows: [] };
@@ -19,6 +20,14 @@ function createUserClient() {
       if (sql.includes("FROM users WHERE email")) return { rows: users.has(args[0]) ? [users.get(args[0])] : [] };
       if (sql.startsWith("INSERT INTO user_sessions")) {
         sessions.set(args[2], { user_id: args[1], expires_at: args[3] });
+        return { rows: [] };
+      }
+      if (sql.startsWith("SELECT persona")) return { rows: profiles.has(args[0]) ? [profiles.get(args[0])] : [] };
+      if (sql.startsWith("INSERT INTO user_profiles")) {
+        profiles.set(args[0], {
+          persona: args[1], budget_min: args[2], budget_max: args[3],
+          preferred_categories_json: args[4], excluded_categories_json: args[5], updated_at: args[6]
+        });
         return { rows: [] };
       }
       if (sql.includes("FROM user_sessions JOIN users")) {
@@ -109,6 +118,21 @@ test("user endpoints support the full registration and session lifecycle", async
   const current = await request("GET", "/api/users/me", { token: login.json.token });
   assert.equal(current.statusCode, 200);
   assert.equal(current.json.user.email, "user@example.com");
+  assert.equal(current.json.profile.persona, "normal");
+
+  const updated = await request("PUT", "/api/users/me", {
+    token: login.json.token,
+    body: { persona: "luxury", budgetMax: 2000, preferredCategories: ["Luxury Finds"], excludedCategories: ["Budget Finds"] }
+  });
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.json.profile.persona, "luxury");
+  const tailored = await request("GET", "/api/products/search?q=travel%20bag&limit=3", { token: login.json.token });
+  assert.equal(tailored.statusCode, 200);
+  assert.equal(tailored.json.persona, "luxury");
+  assert.equal(tailored.json.provenance.profileApplied, true);
+
+  const invalidProfile = await request("PUT", "/api/users/me", { token: login.json.token, body: { budgetMin: 100, budgetMax: 10 } });
+  assert.equal(invalidProfile.statusCode, 400);
 
   const logout = await request("POST", "/api/users/logout", { token: login.json.token });
   assert.equal(logout.statusCode, 204);

@@ -42,7 +42,14 @@ curl -X POST http://localhost:3000/api/users/register \
 
 Sign in with `POST /api/users/login` and use the returned token in an
 `Authorization: Bearer <token>` header. `GET /api/users/me` returns the signed
-in user, and `POST /api/users/logout` invalidates that session token.
+in user and their discovery profile, and `POST /api/users/logout` invalidates
+that session token.
+
+Update the profile with `PUT /api/users/me`. A profile can save `persona`
+(`normal`, `luxury`, `bargain`, or `minimalist`), `budgetMin`, `budgetMax`, and
+up to 20 `preferredCategories` or `excludedCategories`. Authenticated product
+searches apply those preferences automatically; an explicit `persona` query
+parameter overrides the profile persona.
 
 ## Deploy to Vercel
 

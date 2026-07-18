@@ -23,6 +23,16 @@ const setupSql = [
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY,
+    persona TEXT NOT NULL DEFAULT 'normal',
+    budget_min INTEGER,
+    budget_max INTEGER,
+    preferred_categories_json TEXT NOT NULL DEFAULT '[]',
+    excluded_categories_json TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
   "CREATE INDEX IF NOT EXISTS user_sessions_token_hash_idx ON user_sessions(token_hash)"
 ];
 
@@ -80,6 +90,40 @@ export class UserStore {
     return result.rows[0] ? this.#publicUser(rowToUser(result.rows[0])) : undefined;
   }
 
+  async getProfile(userId) {
+    await this.#ensureSetup();
+    const result = await this.client.execute({
+      sql: "SELECT persona, budget_min, budget_max, preferred_categories_json, excluded_categories_json, updated_at FROM user_profiles WHERE user_id = ?",
+      args: [userId]
+    });
+    return result.rows[0] ? rowToProfile(result.rows[0]) : defaultProfile();
+  }
+
+  async updateProfile(userId, input) {
+    const validationError = validateProfile(input);
+    if (validationError) {
+      const error = new Error(validationError);
+      error.status = 400;
+      throw error;
+    }
+    const current = await this.getProfile(userId);
+    const profile = {
+      persona: input.persona === undefined ? current.persona : input.persona,
+      budgetMin: input.budgetMin === undefined ? current.budgetMin : input.budgetMin,
+      budgetMax: input.budgetMax === undefined ? current.budgetMax : input.budgetMax,
+      preferredCategories: input.preferredCategories === undefined ? current.preferredCategories : normalizeCategories(input.preferredCategories),
+      excludedCategories: input.excludedCategories === undefined ? current.excludedCategories : normalizeCategories(input.excludedCategories),
+      updatedAt: new Date().toISOString()
+    };
+    await this.client.execute({
+      sql: `INSERT INTO user_profiles (user_id, persona, budget_min, budget_max, preferred_categories_json, excluded_categories_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET persona = excluded.persona, budget_min = excluded.budget_min, budget_max = excluded.budget_max, preferred_categories_json = excluded.preferred_categories_json, excluded_categories_json = excluded.excluded_categories_json, updated_at = excluded.updated_at`,
+      args: [userId, profile.persona, profile.budgetMin, profile.budgetMax, JSON.stringify(profile.preferredCategories), JSON.stringify(profile.excludedCategories), profile.updatedAt]
+    });
+    return profile;
+  }
+
   async logout(token) {
     await this.#ensureSetup();
     if (token) await this.client.execute({ sql: "DELETE FROM user_sessions WHERE token_hash = ?", args: [tokenHash(token)] });
@@ -124,6 +168,19 @@ export function validateRegistration({ email, password, displayName }) {
   return undefined;
 }
 
+export function validateProfile(input) {
+  if (!input || typeof input !== "object") return "Profile must be an object";
+  if (input.persona !== undefined && !["normal", "luxury", "bargain", "minimalist"].includes(input.persona)) return "Persona must be normal, luxury, bargain, or minimalist";
+  for (const field of ["budgetMin", "budgetMax"]) {
+    if (input[field] !== undefined && (!Number.isInteger(input[field]) || input[field] < 0)) return `${field} must be a non-negative integer`;
+  }
+  if (input.budgetMin !== undefined && input.budgetMax !== undefined && input.budgetMin > input.budgetMax) return "budgetMin cannot exceed budgetMax";
+  for (const field of ["preferredCategories", "excludedCategories"]) {
+    if (input[field] !== undefined && (!Array.isArray(input[field]) || input[field].length > 20 || input[field].some((value) => typeof value !== "string" || !value.trim() || value.length > 80))) return `${field} must be an array of up to 20 category names`;
+  }
+  return undefined;
+}
+
 async function hashPassword(password) {
   const salt = randomBytes(16).toString("base64url");
   const hash = await deriveKey(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, "sha512");
@@ -156,4 +213,23 @@ function rowToUser(row) {
     passwordHash: row.password_hash,
     createdAt: row.created_at
   };
+}
+
+function defaultProfile() {
+  return { persona: "normal", budgetMin: null, budgetMax: null, preferredCategories: [], excludedCategories: [], updatedAt: null };
+}
+
+function rowToProfile(row) {
+  return {
+    persona: row.persona,
+    budgetMin: row.budget_min ?? null,
+    budgetMax: row.budget_max ?? null,
+    preferredCategories: JSON.parse(row.preferred_categories_json || "[]"),
+    excludedCategories: JSON.parse(row.excluded_categories_json || "[]"),
+    updatedAt: row.updated_at
+  };
+}
+
+function normalizeCategories(categories) {
+  return [...new Set(categories.map((category) => category.trim()))];
 }
