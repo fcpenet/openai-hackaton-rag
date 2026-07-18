@@ -20,8 +20,13 @@ function seededRandom(seed) {
   };
 }
 
-function pick(random, items) {
-  return items[Math.floor(random() * items.length)];
+function shuffled(random, items) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function simulatedPrice(seedText) {
@@ -82,13 +87,17 @@ export function createIntergalacticCollection(query, limit = 12, { persona = "in
     "starlit",
     "earth-tone"
   ];
+  const variantAdjectives = shuffled(random, adjectives);
+  const variantNouns = shuffled(random, nouns);
+  const variantUseCases = shuffled(random, useCases);
+  const variantFinishes = shuffled(random, finishes);
 
   return Array.from({ length: limit }, (_, index) => {
     const itemSeed = `${query}:${index}`;
-    const adjective = pick(random, adjectives);
-    const noun = pick(random, nouns);
-    const finish = pick(random, finishes);
-    const useCase = pick(random, useCases);
+    const adjective = variantAdjectives[index % variantAdjectives.length];
+    const noun = variantNouns[index % variantNouns.length];
+    const finish = variantFinishes[Math.floor(index / variantUseCases.length) % variantFinishes.length];
+    const useCase = variantUseCases[index % variantUseCases.length];
     const title = `${adjective} ${noun}`;
     const description = `A ${finish} ${noun.toLowerCase()} for ${useCase}.`;
     const reviews = createReviews(`intergalactic:${itemSeed}`, title, description, { mode: "alien" });
@@ -97,9 +106,9 @@ export function createIntergalacticCollection(query, limit = 12, { persona = "in
     return {
       id: `intergalactic:${hash(itemSeed).toString(36)}:${rank}`,
       title: `${title} ${rank}`,
-      description: `${description} Inspired by ${baseLabel.toLowerCase()} search intent.`,
+      description: `${description} Inspired by ${baseLabel.toLowerCase()} search intent. Orbital registry variant ${rank}.`,
       category: "Intergalactic Mart",
-      imageUrl: createProductImage(title, description),
+      imageUrl: createProductImage(`${title} ${rank}`, `${description} Variant ${rank}.`, itemSeed),
       persona: normalizedPersona,
       explanation: buildExplanation({ query, persona: normalizedPersona, title, category: "Intergalactic Mart", description }),
       ...reviews,

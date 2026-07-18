@@ -47,3 +47,13 @@ test("varies review titles across a collection", () => {
   );
   assert.ok(titles.size >= 8);
 });
+
+test("gives every generated item distinct copy and artwork", () => {
+  for (const collection of [
+    createOnDemandCollection("iphone", 50),
+    createIntergalacticCollection("phone", 50)
+  ]) {
+    assert.equal(new Set(collection.map((product) => product.description)).size, collection.length);
+    assert.equal(new Set(collection.map((product) => product.imageUrl)).size, collection.length);
+  }
+});

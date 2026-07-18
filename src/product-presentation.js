@@ -39,20 +39,27 @@ function escapeXml(value) {
   })[character]);
 }
 
-function illustration(title, description) {
+function illustration(title, description, variant) {
   const subject = `${title} ${description || ""}`.toLowerCase();
+  const value = hash(`${title}:${description || ""}:${variant || ""}`);
+  const accent = `hsl(${value % 360} 68% 52%)`;
+  const accentLight = `hsl(${(value + 42) % 360} 72% 78%)`;
+  const rotation = (value % 25) - 12;
+  const badgeX = 44 + (value % 30);
+  const badgeY = 44 + ((value >>> 8) % 30);
+  const variantMark = `<g transform="rotate(${rotation} 200 170)"><circle cx="${badgeX}" cy="${badgeY}" r="24" fill="${accentLight}"/><path d="M${badgeX - 11} ${badgeY}h22M${badgeX} ${badgeY - 11}v22" stroke="${accent}" stroke-width="7" stroke-linecap="round"/></g>`;
   if (/phone|smartphone|iphone/.test(subject)) {
-    return '<rect x="116" y="30" width="168" height="260" rx="24" fill="#24324A"/><rect x="128" y="52" width="144" height="200" rx="12" fill="#B8E2F2"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>';
+    return `<rect x="116" y="30" width="168" height="260" rx="24" fill="#24324A"/><rect x="128" y="52" width="144" height="200" rx="12" fill="${accentLight}"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>${variantMark}`;
   }
   if (/headphone|headset|earbud/.test(subject)) {
-    return '<path d="M100 205V155a100 100 0 0 1 200 0v50" fill="none" stroke="#24324A" stroke-width="26" stroke-linecap="round"/><rect x="75" y="190" width="56" height="78" rx="20" fill="#E95D3C"/><rect x="269" y="190" width="56" height="78" rx="20" fill="#E95D3C"/>';
+    return `<path d="M100 205V155a100 100 0 0 1 200 0v50" fill="none" stroke="#24324A" stroke-width="26" stroke-linecap="round"/><rect x="75" y="190" width="56" height="78" rx="20" fill="${accent}"/><rect x="269" y="190" width="56" height="78" rx="20" fill="${accent}"/>${variantMark}`;
   }
-  return '<rect x="86" y="78" width="228" height="184" rx="18" fill="#F2B441"/><path d="M86 128h228M200 78v184" stroke="#FFF7E8" stroke-width="12"/><circle cx="200" cy="170" r="24" fill="#24324A"/>';
+  return `<rect x="86" y="78" width="228" height="184" rx="18" fill="${accent}"/><path d="M86 128h228M200 78v184" stroke="#FFF7E8" stroke-width="12"/><circle cx="200" cy="170" r="24" fill="${accentLight}"/>${variantMark}`;
 }
 
-export function createProductImage(title, description) {
+export function createProductImage(title, description, variant = "") {
   const label = escapeXml(title.slice(0, 48));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 340" role="img" aria-label="${label}"><rect width="400" height="340" fill="#FFF7E8"/>${illustration(title, description)}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 340" role="img" aria-label="${label}"><rect width="400" height="340" fill="#FFF7E8"/>${illustration(title, description, variant)}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 

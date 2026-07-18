@@ -20,8 +20,13 @@ function seededRandom(seed) {
   };
 }
 
-function pick(random, items) {
-  return items[Math.floor(random() * items.length)];
+function shuffled(random, items) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function titleCase(value) {
@@ -179,16 +184,21 @@ export function createOnDemandCollection(query, limit = 12, { persona = "normal"
     "weathered",
     "high-contrast"
   ];
+  const variantArchetypes = shuffled(random, archetypes);
+  const variantAdjectives = shuffled(random, group.adjectives);
+  const variantNouns = shuffled(random, group.nouns);
+  const variantUseCases = shuffled(random, useCases);
+  const variantFinishes = shuffled(random, finishes);
 
   return Array.from({ length: limit }, (_, index) => {
-    const archetype = pick(random, archetypes);
-    const adjective = pick(random, group.adjectives);
-    const noun = pick(random, group.nouns);
-    const useCase = pick(random, useCases);
-    const finish = pick(random, finishes);
+    const archetype = variantArchetypes[index % variantArchetypes.length];
+    const adjective = variantAdjectives[index % variantAdjectives.length];
+    const noun = variantNouns[index % variantNouns.length];
+    const useCase = variantUseCases[index % variantUseCases.length];
+    const finish = variantFinishes[Math.floor(index / variantUseCases.length) % variantFinishes.length];
     const title = `${adjective} ${baseLabel} ${noun} ${archetype}`;
-    const description = `${buildDescription(baseLabel, group.category, useCase)} It has a ${finish} finish and a ${noun.toLowerCase()}-first shape.`;
     const idSeed = `${query}:${index}`;
+    const description = `${buildDescription(baseLabel, group.category, useCase)} It has a ${finish} finish, a ${noun.toLowerCase()}-first shape, and a distinct catalog variant ${index + 1}.`;
     const reviews = createReviews(`generated:${idSeed}`, title, description, { mode: normalizedPersona === "intergalactic" ? "alien" : "normal" });
 
     return {
@@ -196,7 +206,7 @@ export function createOnDemandCollection(query, limit = 12, { persona = "normal"
       title,
       description,
       category: group.category,
-      imageUrl: createProductImage(title, description),
+      imageUrl: createProductImage(title, description, idSeed),
       persona: normalizedPersona,
       explanation: buildExplanation({ query, persona: normalizedPersona, title, category: group.category, description }),
       ...reviews,
