@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReviewText } from "../src/product-presentation.js";
+import { createReviewText, createReviewTitle } from "../src/product-presentation.js";
 import { createIntergalacticCollection } from "../src/intergalactic-mart.js";
 import { createOnDemandCollection } from "../src/on-demand-catalog.js";
 
@@ -39,4 +39,11 @@ test("keeps one-star reviews negative and secret mode alien", () => {
   assert.equal(secretProduct.price.currency, "GCR");
   assert.ok(secretProduct.reviews.length > 0);
   assert.match(secretProduct.reviews[0].body, /(earth|human|mothership|translator|disguise)/i);
+});
+
+test("varies review titles across a collection", () => {
+  const titles = new Set(
+    Array.from({ length: 10 }, (_, index) => createReviewTitle(() => index / 10, "Test Item", "sample description", 3 + (index % 3), index, index % 2 === 0 ? "normal" : "alien"))
+  );
+  assert.ok(titles.size >= 8);
 });

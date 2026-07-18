@@ -46,6 +46,95 @@ export function createProductImage(title, description) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+export function createReviewTitle(random, title, description, rating, index, mode) {
+  const subject = (title || description || "this item").toLowerCase();
+  const ratingTitles = mode === "alien"
+    ? {
+      1: [
+        "First Contact, Bad Outcome",
+        "Earth Commerce Misfire",
+        "Suspiciously Not Great",
+        "My Antennae Say No",
+        "Human Retail Warning"
+      ],
+      2: [
+        "Borderline Usable",
+        "Almost Earth-Ready",
+        "A Mildly Strange Purchase",
+        "Not Fully Convincing",
+        "Operational, Barely"
+      ],
+      3: [
+        "Reasonably Earthlike",
+        "Acceptable by Human Standards",
+        "The Middle of the Galaxy",
+        "Ordinary in a Good Way",
+        "Serviceable Enough"
+      ],
+      4: [
+        "Strong Earth Disguise Value",
+        "Pleasantly Advanced",
+        "Would Recommend to Visitors",
+        "Good Human Cover Material",
+        "Surprisingly Solid"
+      ],
+      5: [
+        "A Triumph of Disguise",
+        "Excellent Human Mimicry",
+        "Mothership-Worthy",
+        "Near-Perfect Earth Camouflage",
+        "A Very Good Artifact"
+      ]
+    }
+    : {
+      1: [
+        "Not My Favorite",
+        "A Rough Start",
+        "Needed More Work",
+        "A Bit of a Miss",
+        "Disappointing Out of the Box"
+      ],
+      2: [
+        "Mostly Fine",
+        "Could Be Better",
+        "Only Half Convinced",
+        "A Little Clunky",
+        "Near the Line"
+      ],
+      3: [
+        "Pretty Solid",
+        "Exactly Average",
+        "Does the Job",
+        "Comfortably Ordinary",
+        "No Complaints"
+      ],
+      4: [
+        "Better Than Expected",
+        "A Pleasant Surprise",
+        "Would Buy Again",
+        "Strong Value",
+        "Genuinely Good"
+      ],
+      5: [
+        "Excellent Find",
+        "Worth the Hype",
+        "Top Shelf",
+        "Instant Favorite",
+        "Very Happy With It"
+      ]
+    };
+
+  const prefix = index === 0
+    ? (mode === "alien" ? "First Encounter" : "First Impressions")
+    : pick(random, mode === "alien"
+      ? ["Unexpected Report", "Field Note", "Observed Behavior", "Transmission Log", "Quick Sighting"]
+      : ["Quick Note", "Short Take", "Fresh Impressions", "Field Report", "Brief Verdict"]);
+
+  const subjectTag = subject.length > 22 ? subject.slice(0, 22).trim() : subject;
+  const chosen = pick(random, ratingTitles[rating]);
+  return `${prefix}: ${chosen}${subjectTag ? ` on ${subjectTag}` : ""}`;
+}
+
 export function createReviewText(random, title, description, rating, index, mode) {
   const subject = title || description || "this item";
   const firstEncounter = mode === "alien" && index === 0;
@@ -139,13 +228,7 @@ export function createReviews(id, title = "", description = "", { mode = "normal
       id: `${id}:review:${index + 1}`,
       author,
       rating,
-      title: pick(random, [
-        "Worth it",
-        "Pretty good",
-        "Exactly what I needed",
-        "Fine for the price",
-        "Would buy again"
-      ]),
+      title: createReviewTitle(random, title, description, rating, index, mode),
       body: createReviewText(random, title, description, rating, index, mode),
       createdAt
     };
