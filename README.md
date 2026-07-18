@@ -57,6 +57,7 @@ Vercel uses `src/app.js` as its Node server entrypoint and deploys the functions
 in `api/products/` and `api/users/`, which delegate to the shared handlers in
 `src/product-api.js`. The API is available at `/api/products/search`,
 `/api/products/stream`, `/api/products/shelf`, `/api/products/compare`,
+`/api/products/selling-fast`, `/api/products/featured`,
 `/api/users/register`, `/api/users/login`, `/api/users/me`, and
 `/api/users/logout`; no `vercel.json` file is required. OpenAPI JSON is
 available at `/openapi.json`, and the Swagger UI page is at `/docs`.

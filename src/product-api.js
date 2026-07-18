@@ -322,6 +322,36 @@ function getOpenApiDocument() {
           }
         }
       },
+      "/api/products/selling-fast": {
+        get: {
+          summary: "Get the six fastest-selling products for a search",
+          parameters: [
+            { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Search phrase for the product collection" },
+            { name: "not-suspicious", in: "query", required: false, schema: { type: "string", enum: ["Hum^n"] } },
+            { name: "persona", in: "query", required: false, schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] } }
+          ],
+          responses: {
+            "200": { description: "Six products ordered by simulated sales velocity", content: { "application/json": { schema: { $ref: "#/components/schemas/ProductCollection" } } } },
+            "400": { description: "Missing q parameter" },
+            "502": { description: "Product generation failed" }
+          }
+        }
+      },
+      "/api/products/featured": {
+        get: {
+          summary: "Get the featured product for a search",
+          parameters: [
+            { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Search phrase for the product collection" },
+            { name: "not-suspicious", in: "query", required: false, schema: { type: "string", enum: ["Hum^n"] } },
+            { name: "persona", in: "query", required: false, schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] } }
+          ],
+          responses: {
+            "200": { description: "One featured product", content: { "application/json": { schema: { $ref: "#/components/schemas/ProductCollection" } } } },
+            "400": { description: "Missing q parameter" },
+            "502": { description: "Product generation failed" }
+          }
+        }
+      },
       "/api/products/stream": {
         get: {
           summary: "Stream products with Server-Sent Events",
@@ -467,6 +497,17 @@ function getOpenApiDocument() {
         bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "session token" }
       },
       schemas: {
+        ProductCollection: {
+          type: "object",
+          properties: {
+            products: { type: "array", items: { $ref: "#/components/schemas/Product" } },
+            source: { type: "string" },
+            generatedOnDemand: { type: "boolean" },
+            persona: { type: "string" },
+            provenance: { $ref: "#/components/schemas/Provenance" }
+          },
+          required: ["products", "source", "generatedOnDemand", "persona", "provenance"]
+        },
         RegisterInput: {
           type: "object",
           properties: {
@@ -627,14 +668,17 @@ async function resolveCollection(query, limit, persona = "normal") {
   let changed = !cached;
   const collection = sourceCollection.map((product) => {
     const reviews = createReviews(product.id, product.title, product.description, { mode: persona === "intergalactic" ? "alien" : "normal" });
-    const needsImage = !product.imageUrl;
+    // Always derive artwork from the individual product identity. This also repairs
+    // legacy cached collections whose images were generated from the search alone.
+    const imageUrl = createProductImage(product.title, product.description, product.id);
+    const needsImage = product.imageUrl !== imageUrl;
     const needsReviews = !Array.isArray(product.reviews) || product.rating === undefined || product.reviewCount === undefined;
     const needsPersona = product.persona === undefined || product.explanation === undefined || product.provenance === undefined;
     if (!needsImage && !needsReviews && !needsPersona) return product;
     changed = true;
     return repairGeneratedProduct({
       ...product,
-      imageUrl: product.imageUrl || createProductImage(product.title, product.description),
+      imageUrl,
       rating: product.rating ?? reviews.rating,
       reviewCount: product.reviewCount ?? reviews.reviewCount,
       reviews: product.reviews ?? reviews.reviews
@@ -697,6 +741,38 @@ async function handleSearch(request, url, response) {
   } catch (error) {
     return json(response, 502, { error: error.message || "Product search failed" });
   }
+}
+
+async function handleCuratedCollection(request, url, response, { count, sort }) {
+  const { query } = parseSearch(url);
+  if (!query) return json(response, 400, { error: "q is required" });
+  try {
+    const result = await resolvePersonalizedCollection(request, url, count);
+    const products = [...result.products].sort(sort).slice(0, count);
+    return json(response, 200, {
+      products,
+      source: result.source,
+      generatedOnDemand: !result.cached,
+      persona: result.persona,
+      provenance: result.provenance
+    }, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Product collection failed" });
+  }
+}
+
+async function handleSellingFast(request, url, response) {
+  return handleCuratedCollection(request, url, response, {
+    count: 6,
+    sort: (left, right) => (right.reviewCount - left.reviewCount) || (right.rating || 0) - (left.rating || 0)
+  });
+}
+
+async function handleFeatured(request, url, response) {
+  return handleCuratedCollection(request, url, response, {
+    count: 1,
+    sort: (left, right) => (right.rating || 0) - (left.rating || 0) || right.reviewCount - left.reviewCount
+  });
 }
 
 async function handleStream(request, url, response) {
@@ -795,6 +871,8 @@ export async function handleRequest(request, response) {
     if (request.method === "GET" && (url.pathname === "/api/products/search" || url.pathname === "/v1/products/search")) {
       return handleSearch(request, url, response);
     }
+    if (request.method === "GET" && url.pathname === "/api/products/selling-fast") return handleSellingFast(request, url, response);
+    if (request.method === "GET" && url.pathname === "/api/products/featured") return handleFeatured(request, url, response);
     if (request.method === "GET" && url.pathname === "/api/products/stream") {
       return handleStream(request, url, response);
     }

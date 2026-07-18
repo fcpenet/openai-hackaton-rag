@@ -24,6 +24,8 @@ test("serves OpenAPI document and docs page", async () => {
   const openApi = JSON.parse(openApiResponse.body);
   assert.equal(openApi.openapi, "3.0.3");
   assert.ok(openApi.paths["/api/products/search"]);
+  assert.ok(openApi.paths["/api/products/selling-fast"]);
+  assert.ok(openApi.paths["/api/products/featured"]);
   assert.ok(openApi.paths["/api/users/register"]);
   assert.ok(openApi.paths["/api/users/login"]);
   assert.ok(openApi.paths["/api/users/me"]);
