@@ -1,4 +1,5 @@
 import { createProductImage, createReviews } from "./product-presentation.js";
+import { buildExplanation, normalizePersona } from "./product-intelligence.js";
 
 function hash(value) {
   let result = 2166136261;
@@ -31,6 +32,65 @@ function titleCase(value) {
     .map((word) => word[0].toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
+
+const personaConfigs = {
+  normal: {
+    category: "General Merchandise",
+    nouns: ["Kit", "Pack", "Tool", "Accessory", "Set", "Bundle"],
+    adjectives: ["Practical", "Reliable", "Compact", "Everyday", "Versatile", "Useful"],
+    useCases: [
+      "daily use",
+      "travel",
+      "a new workspace",
+      "weekend projects",
+      "gift-giving",
+      "lightweight carry"
+    ],
+    finishes: ["matte", "soft-touch", "brushed", "clean-lined", "weathered", "high-contrast"]
+  },
+  luxury: {
+    category: "Luxury Finds",
+    nouns: ["Edition", "Case", "Carryall", "Suite", "Set", "Instrument"],
+    adjectives: ["Polished", "Tailored", "Elevated", "Refined", "Signature", "Premium"],
+    useCases: [
+      "business travel",
+      "a polished desk",
+      "gifting with taste",
+      "premium everyday carry",
+      "quiet attention",
+      "careful presentation"
+    ],
+    finishes: ["satin", "brushed gold", "soft leather", "high-gloss", "precision-milled", "velvet matte"]
+  },
+  bargain: {
+    category: "Budget Finds",
+    nouns: ["Pack", "Deal", "Saver", "Combo", "Kit", "Bundle"],
+    adjectives: ["Budget", "Sharp", "No-Frills", "Value", "Practical", "Steady"],
+    useCases: [
+      "keeping costs down",
+      "daily errands",
+      "fast replacements",
+      "low-risk testing",
+      "simple upgrades",
+      "stretching a budget"
+    ],
+    finishes: ["plain", "matte", "durable", "simple", "workhorse", "lightweight"]
+  },
+  minimalist: {
+    category: "Minimal Essentials",
+    nouns: ["Tool", "Piece", "Core", "Unit", "Form", "Set"],
+    adjectives: ["Clean", "Quiet", "Reduced", "Simple", "Bare", "Slim"],
+    useCases: [
+      "a tidy desk",
+      "a calmer routine",
+      "low-clutter living",
+      "quiet organization",
+      "essential carry",
+      "plain functionality"
+    ],
+    finishes: ["soft matte", "stone", "sand", "paper-white", "low-profile", "monochrome"]
+  }
+};
 
 function keywordGroup(query) {
   const text = query.toLowerCase();
@@ -69,11 +129,11 @@ function keywordGroup(query) {
       adjectives: ["Pocket", "Curated", "Field", "Compact", "Reference", "Travel"]
     };
   }
-  return {
-    category: "General Merchandise",
-    nouns: ["Kit", "Pack", "Tool", "Accessory", "Set", "Bundle"],
-    adjectives: ["Practical", "Reliable", "Compact", "Everyday", "Versatile", "Useful"]
-  };
+  return personaConfigs.normal;
+}
+
+function resolvePersonaConfig(persona) {
+  return personaConfigs[normalizePersona(persona)] || personaConfigs.normal;
 }
 
 function simulatedPrice(seedText) {
@@ -86,10 +146,13 @@ function buildDescription(baseLabel, category, useCase) {
   return `An on-demand ${category.toLowerCase()} item for ${useCase}, shaped around ${baseLabel.toLowerCase()}.`;
 }
 
-export function createOnDemandCollection(query, limit = 12) {
+export function createOnDemandCollection(query, limit = 12, { persona = "normal" } = {}) {
   const baseLabel = titleCase(query) || "Curious Item";
   const random = seededRandom(hash(`generated:${query}`));
-  const group = keywordGroup(query);
+  const normalizedPersona = normalizePersona(persona);
+  const group = normalizedPersona === "normal"
+    ? keywordGroup(query)
+    : { ...keywordGroup(query), ...resolvePersonaConfig(normalizedPersona) };
   const archetypes = [
     "Pro",
     "Mini",
@@ -126,7 +189,7 @@ export function createOnDemandCollection(query, limit = 12) {
     const title = `${adjective} ${baseLabel} ${noun} ${archetype}`;
     const description = `${buildDescription(baseLabel, group.category, useCase)} It has a ${finish} finish and a ${noun.toLowerCase()}-first shape.`;
     const idSeed = `${query}:${index}`;
-    const reviews = createReviews(`generated:${idSeed}`, title, description, { mode: "normal" });
+    const reviews = createReviews(`generated:${idSeed}`, title, description, { mode: normalizedPersona === "intergalactic" ? "alien" : "normal" });
 
     return {
       id: `generated:${hash(idSeed).toString(36)}:${index + 1}`,
@@ -134,6 +197,8 @@ export function createOnDemandCollection(query, limit = 12) {
       description,
       category: group.category,
       imageUrl: createProductImage(title, description),
+      persona: normalizedPersona,
+      explanation: buildExplanation({ query, persona: normalizedPersona, title, category: group.category, description }),
       ...reviews,
       price: { amount: simulatedPrice(idSeed), currency: "PHP", isSimulated: true },
       source: {

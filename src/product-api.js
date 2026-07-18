@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createIntergalacticCollection } from "./intergalactic-mart.js";
 import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
+import { buildCompareVerdicts, buildShelfRows, normalizePersona, repairGeneratedProduct } from "./product-intelligence.js";
 
 const port = Number(process.env.PORT || 3000);
 let catalogPromise;
@@ -31,7 +32,8 @@ function parseSearch(url) {
   const requestedLimit = Number(url.searchParams.get("limit") || 12);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 12, 1), 50);
   const secretMode = url.searchParams.get("not-suspicious") === "Hum^n";
-  return { query, limit, secretMode };
+  const persona = secretMode ? "intergalactic" : normalizePersona(url.searchParams.get("persona") || "normal");
+  return { query, limit, secretMode, persona };
 }
 
 function getOpenApiDocument() {
@@ -87,6 +89,13 @@ function getOpenApiDocument() {
               required: false,
               schema: { type: "string", enum: ["Hum^n"] },
               description: "Optional hidden toggle that switches to the intergalactic mart catalog"
+            },
+            {
+              name: "persona",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] },
+              description: "Optional catalog persona for the generated shelf"
             }
           ],
           responses: {
@@ -102,9 +111,11 @@ function getOpenApiDocument() {
                         items: { $ref: "#/components/schemas/Product" }
                       },
                       source: { type: "string", enum: ["catalog", "on-demand-catalog", "intergalactic-mart"] },
-                      generatedOnDemand: { type: "boolean" }
+                      generatedOnDemand: { type: "boolean" },
+                      persona: { type: "string" },
+                      provenance: { $ref: "#/components/schemas/Provenance" }
                     },
-                    required: ["products", "source", "generatedOnDemand"]
+                    required: ["products", "source", "generatedOnDemand", "persona", "provenance"]
                   }
                 }
               }
@@ -136,6 +147,12 @@ function getOpenApiDocument() {
               in: "query",
               required: false,
               schema: { type: "string", enum: ["Hum^n"] }
+            },
+            {
+              name: "persona",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] }
             }
           ],
           responses: {
@@ -164,6 +181,12 @@ function getOpenApiDocument() {
               in: "query",
               required: false,
               schema: { type: "string", enum: ["Hum^n"] }
+            },
+            {
+              name: "persona",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] }
             }
           ],
           responses: {
@@ -172,6 +195,104 @@ function getOpenApiDocument() {
               content: {
                 "text/event-stream": {
                   schema: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/products/shelf": {
+        get: {
+          summary: "Stream a shelf grouped into shopping rows",
+          parameters: [
+            {
+              name: "q",
+              in: "query",
+              required: true,
+              schema: { type: "string" }
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 4, maximum: 50, default: 12 }
+            },
+            {
+              name: "not-suspicious",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["Hum^n"] }
+            },
+            {
+              name: "persona",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "SSE stream of shelf rows",
+              content: {
+                "text/event-stream": {
+                  schema: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/products/compare": {
+        get: {
+          summary: "Compare 2 to 4 products side by side",
+          parameters: [
+            {
+              name: "q",
+              in: "query",
+              required: true,
+              schema: { type: "string" }
+            },
+            {
+              name: "count",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 2, maximum: 4, default: 4 }
+            },
+            {
+              name: "ids",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Comma-separated product IDs to compare"
+            },
+            {
+              name: "not-suspicious",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["Hum^n"] }
+            },
+            {
+              name: "persona",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Comparison verdicts and selected products",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      products: { type: "array", items: { $ref: "#/components/schemas/Product" } },
+                      verdicts: { type: "object" },
+                      persona: { type: "string" },
+                      provenance: { $ref: "#/components/schemas/Provenance" }
+                    },
+                    required: ["products", "verdicts", "persona", "provenance"]
+                  }
                 }
               }
             }
@@ -189,6 +310,8 @@ function getOpenApiDocument() {
             description: { type: ["string", "null"] },
             category: { type: "string" },
             imageUrl: { type: "string" },
+            persona: { type: "string" },
+            explanation: { type: "string" },
             rating: { type: ["integer", "null"], minimum: 1, maximum: 5 },
             reviewCount: { type: "integer", minimum: 0, maximum: 250 },
             reviews: {
@@ -196,9 +319,10 @@ function getOpenApiDocument() {
               items: { $ref: "#/components/schemas/Review" }
             },
             price: { $ref: "#/components/schemas/Price" },
-            source: { $ref: "#/components/schemas/Source" }
+            source: { $ref: "#/components/schemas/Source" },
+            provenance: { $ref: "#/components/schemas/Provenance" }
           },
-          required: ["id", "title", "category", "imageUrl", "rating", "reviewCount", "reviews", "price", "source"]
+          required: ["id", "title", "category", "imageUrl", "persona", "explanation", "rating", "reviewCount", "reviews", "price", "source", "provenance"]
         },
         Review: {
           type: "object",
@@ -231,6 +355,15 @@ function getOpenApiDocument() {
             license: { type: "string" }
           },
           required: ["provider", "itemId", "url", "retrievedAt", "license"]
+        },
+        Provenance: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            persona: { type: "string" },
+            cached: { type: "boolean" }
+          },
+          required: ["query", "persona", "cached"]
         }
       }
     }
@@ -267,47 +400,54 @@ function getDocsHtml() {
 </html>`;
 }
 
-async function resolveCollection(query, limit, secretMode = false) {
+async function resolveCollection(query, limit, persona = "normal") {
   const catalog = await getCatalog();
-  const collectionKey = `${secretMode ? "secret" : "normal"}:${query}`;
+  const collectionKey = `${persona}:${query}`;
   const cached = catalog ? await catalog.get(collectionKey) : undefined;
-  const sourceCollection = cached || (secretMode ? createIntergalacticCollection(query, 50) : createOnDemandCollection(query, 50));
+  const sourceCollection = cached || (
+    persona === "intergalactic"
+      ? createIntergalacticCollection(query, 50, { persona })
+      : createOnDemandCollection(query, 50, { persona })
+  );
   let changed = !cached;
   const collection = sourceCollection.map((product) => {
-    const reviews = createReviews(product.id, product.title, product.description, { mode: secretMode ? "alien" : "normal" });
+    const reviews = createReviews(product.id, product.title, product.description, { mode: persona === "intergalactic" ? "alien" : "normal" });
     const needsImage = !product.imageUrl;
     const needsReviews = !Array.isArray(product.reviews) || product.rating === undefined || product.reviewCount === undefined;
-    if (!needsImage && !needsReviews) return product;
+    const needsPersona = product.persona === undefined || product.explanation === undefined || product.provenance === undefined;
+    if (!needsImage && !needsReviews && !needsPersona) return product;
     changed = true;
-    return {
+    return repairGeneratedProduct({
       ...product,
       imageUrl: product.imageUrl || createProductImage(product.title, product.description),
       rating: product.rating ?? reviews.rating,
       reviewCount: product.reviewCount ?? reviews.reviewCount,
       reviews: product.reviews ?? reviews.reviews
-    };
+    }, { query, persona, cached: Boolean(cached) });
   });
   if (changed && catalog) await catalog.set(collectionKey, collection);
   return {
     products: collection.slice(0, limit),
-    source: cached ? "catalog" : (secretMode ? "intergalactic-mart" : "on-demand-catalog"),
-    cached
+    source: cached ? "catalog" : (persona === "intergalactic" ? "intergalactic-mart" : "on-demand-catalog"),
+    cached,
+    persona,
+    provenance: { query, persona, cached: Boolean(cached) }
   };
 }
 
 async function handleSearch(url, response) {
-  const { query, limit, secretMode } = parseSearch(url);
+  const { query, limit, persona } = parseSearch(url);
   if (!query) return json(response, 400, { error: "q is required" });
   try {
-    const { products, source, cached } = await resolveCollection(query, limit, secretMode);
-    return json(response, 200, { products, source, generatedOnDemand: !cached }, { "cache-control": "no-store" });
+    const { products, source, cached, provenance } = await resolveCollection(query, limit, persona);
+    return json(response, 200, { products, source, generatedOnDemand: !cached, persona, provenance }, { "cache-control": "no-store" });
   } catch (error) {
     return json(response, 502, { error: error.message || "Product search failed" });
   }
 }
 
 async function handleStream(url, response) {
-  const { query, limit, secretMode } = parseSearch(url);
+  const { query, limit, persona } = parseSearch(url);
   if (!query) return json(response, 400, { error: "q is required" });
 
   response.writeHead(200, {
@@ -317,16 +457,68 @@ async function handleStream(url, response) {
   });
   const send = (name, payload) => response.write(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`);
 
-  send("status", { phase: "searching", query });
+  send("status", { phase: "searching", query, persona });
   try {
-    const { products, source, cached } = await resolveCollection(query, limit, secretMode);
-    send("status", { phase: cached ? "catalog-hit" : "sourced", query });
+    const { products, source, cached, provenance } = await resolveCollection(query, limit, persona);
+    send("status", { phase: cached ? "catalog-hit" : "sourced", query, persona });
     for (const product of products) send("product", product);
-    send("done", { count: products.length, source });
+    send("done", { count: products.length, source, persona, provenance });
   } catch (error) {
     send("error", { message: error.message || "Product search failed" });
   } finally {
     response.end();
+  }
+}
+
+async function handleShelf(url, response) {
+  const { query, limit, persona } = parseSearch(url);
+  if (!query) return json(response, 400, { error: "q is required" });
+
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive"
+  });
+  const send = (name, payload) => response.write(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`);
+
+  send("status", { phase: "building-shelf", query, persona });
+  try {
+    const { products, source, cached, provenance } = await resolveCollection(query, Math.max(limit, 12), persona);
+    const rows = buildShelfRows(products);
+    for (const row of rows) {
+      send("shelf-row", { ...row, persona, provenance, source, cached });
+    }
+    send("done", { rows: rows.length, count: products.length, source, persona, provenance });
+  } catch (error) {
+    send("error", { message: error.message || "Shelf generation failed" });
+  } finally {
+    response.end();
+  }
+}
+
+async function handleCompare(url, response) {
+  const { query, limit, persona } = parseSearch(url);
+  const requestedCount = Number(url.searchParams.get("count") || 4);
+  const count = Math.min(Math.max(Number.isFinite(requestedCount) ? requestedCount : 4, 2), 4);
+  const ids = url.searchParams.get("ids")?.split(",").map((id) => id.trim()).filter(Boolean) || [];
+  if (!query) return json(response, 400, { error: "q is required" });
+
+  try {
+    const { products, source, cached, provenance } = await resolveCollection(query, Math.max(limit, count), persona);
+    const selected = ids.length
+      ? products.filter((product) => ids.includes(product.id)).slice(0, count)
+      : products.slice(0, count);
+    const comparison = buildCompareVerdicts(selected.length >= 2 ? selected : products.slice(0, count));
+    return json(response, 200, {
+      products: comparison.ranked,
+      verdicts: comparison.verdicts,
+      persona,
+      provenance,
+      source,
+      generatedOnDemand: !cached
+    }, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Comparison failed" });
   }
 }
 
@@ -341,6 +533,12 @@ export async function handleRequest(request, response) {
     }
     if (request.method === "GET" && url.pathname === "/api/products/stream") {
       return handleStream(url, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/products/shelf") {
+      return handleShelf(url, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/products/compare") {
+      return handleCompare(url, response);
     }
     return json(response, 404, { error: "Not found" });
   } catch (error) {

@@ -23,6 +23,16 @@ function pick(random, items) {
 
 const reviewEpoch = Date.UTC(2024, 0, 1);
 
+function shortenSubject(value, maxWords = 3, maxChars = 28) {
+  const words = value.split(/\s+/).filter(Boolean).slice(0, maxWords);
+  let result = words.join(" ");
+  while (result.length > maxChars && words.length > 1) {
+    words.pop();
+    result = words.join(" ");
+  }
+  return result;
+}
+
 function escapeXml(value) {
   return value.replace(/[<>&"']/g, (character) => ({
     "<": "&lt;", ">": "&gt;", "&": "&amp;", "\"": "&quot;", "'": "&apos;"
@@ -48,80 +58,36 @@ export function createProductImage(title, description) {
 
 export function createReviewTitle(random, title, description, rating, index, mode) {
   const subject = (title || description || "this item").toLowerCase();
-  const ratingTitles = mode === "alien"
+  const subjectTag = shortenSubject(subject);
+  const ratingLabels = mode === "alien"
     ? {
-      1: [
-        "First Contact, Bad Outcome",
-        "Earth Commerce Misfire",
-        "Suspiciously Not Great",
-        "My Antennae Say No",
-        "Human Retail Warning"
-      ],
-      2: [
-        "Borderline Usable",
-        "Almost Earth-Ready",
-        "A Mildly Strange Purchase",
-        "Not Fully Convincing",
-        "Operational, Barely"
-      ],
-      3: [
-        "Reasonably Earthlike",
-        "Acceptable by Human Standards",
-        "The Middle of the Galaxy",
-        "Ordinary in a Good Way",
-        "Serviceable Enough"
-      ],
-      4: [
-        "Strong Earth Disguise Value",
-        "Pleasantly Advanced",
-        "Would Recommend to Visitors",
-        "Good Human Cover Material",
-        "Surprisingly Solid"
-      ],
-      5: [
-        "A Triumph of Disguise",
-        "Excellent Human Mimicry",
-        "Mothership-Worthy",
-        "Near-Perfect Earth Camouflage",
-        "A Very Good Artifact"
-      ]
+      1: ["First Contact", "Earth Warning", "Misfire", "Do Not Recommend", "Unsettling"],
+      2: ["Borderline", "Barely Functional", "Mildly Strange", "Almost There", "Low Confidence"],
+      3: ["Reasonable", "Average Orbit", "Serviceable", "Acceptable", "Middle Ground"],
+      4: ["Strong Signal", "Good Cover", "Helpful Artifact", "Worth Sharing", "Solid Choice"],
+      5: ["Triumph", "High Fidelity", "Mothership Approved", "Excellent Disguise", "Top Shelf"]
     }
     : {
-      1: [
-        "Not My Favorite",
-        "A Rough Start",
-        "Needed More Work",
-        "A Bit of a Miss",
-        "Disappointing Out of the Box"
-      ],
-      2: [
-        "Mostly Fine",
-        "Could Be Better",
-        "Only Half Convinced",
-        "A Little Clunky",
-        "Near the Line"
-      ],
-      3: [
-        "Pretty Solid",
-        "Exactly Average",
-        "Does the Job",
-        "Comfortably Ordinary",
-        "No Complaints"
-      ],
-      4: [
-        "Better Than Expected",
-        "A Pleasant Surprise",
-        "Would Buy Again",
-        "Strong Value",
-        "Genuinely Good"
-      ],
-      5: [
-        "Excellent Find",
-        "Worth the Hype",
-        "Top Shelf",
-        "Instant Favorite",
-        "Very Happy With It"
-      ]
+      1: ["Rough Start", "Not Great", "Bit of a Miss", "Low Confidence", "Needs Work"],
+      2: ["Mostly Fine", "Could Improve", "Near the Line", "A Little Clunky", "Mixed Feelings"],
+      3: ["Pretty Solid", "Acceptably Ordinary", "Does the Job", "No Complaints", "Right in the Middle"],
+      4: ["Better Than Expected", "Strong Value", "Pleasant Surprise", "Would Buy Again", "Very Good"],
+      5: ["Excellent Find", "Worth the Hype", "Top Shelf", "Instant Favorite", "Genuinely Great"]
+    };
+  const suffixes = mode === "alien"
+    ? {
+      1: ["for Earth Use", "on First Sight", "from a Human Shelf", "in a Strange Way", "from the Surface"],
+      2: ["with Some Doubt", "for Limited Use", "from a Nearby Orbit", "after Brief Study", "with Minor Concern"],
+      3: ["for Routine Use", "as Expected", "in Human Terms", "with Cautious Approval", "without Incident"],
+      4: ["for Daily Cover", "with Good Results", "for Visitor Life", "after Careful Testing", "with Strong Approval"],
+      5: ["for the Mothership", "with Great Confidence", "for Full Assimilation", "with Excellent Results", "without Reservation"]
+    }
+    : {
+      1: ["on First Try", "for the Price", "without Much Drama", "after a Rough Start", "with Low Expectations"],
+      2: ["for Everyday Use", "with a Few Rough Edges", "after Some Doubt", "for Light Duty", "with Mixed Results"],
+      3: ["for Normal Life", "without Complaints", "as Expected", "for the Basics", "in Daily Use"],
+      4: ["for Regular Use", "with Good Value", "without Regret", "for a Solid Buy", "with Strong Results"],
+      5: ["without Hesitation", "for the Win", "as a Favorite", "for Long-Term Use", "with High Confidence"]
     };
 
   const prefix = index === 0
@@ -130,9 +96,9 @@ export function createReviewTitle(random, title, description, rating, index, mod
       ? ["Unexpected Report", "Field Note", "Observed Behavior", "Transmission Log", "Quick Sighting"]
       : ["Quick Note", "Short Take", "Fresh Impressions", "Field Report", "Brief Verdict"]);
 
-  const subjectTag = subject.length > 22 ? subject.slice(0, 22).trim() : subject;
-  const chosen = pick(random, ratingTitles[rating]);
-  return `${prefix}: ${chosen}${subjectTag ? ` on ${subjectTag}` : ""}`;
+  const chosen = pick(random, ratingLabels[rating]);
+  const suffix = pick(random, suffixes[rating]);
+  return `${prefix}: ${chosen}${subjectTag ? ` on ${subjectTag}` : ""} ${suffix}`;
 }
 
 export function createReviewText(random, title, description, rating, index, mode) {

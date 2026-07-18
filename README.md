@@ -29,11 +29,17 @@ Run tests with `npm test`.
 
 Vercel uses `src/app.js` as its Node server entrypoint and deploys the functions
 in `api/products/`, which delegate to the shared handlers in
-`src/product-api.js`. The API is available at `/api/products/search` and
-`/api/products/stream`; no `vercel.json` file is required. OpenAPI JSON is
-available at `/openapi.json`, and the Swagger UI page is at `/docs`.
-Add `not-suspicious=Hum^n` to switch the search and stream endpoints to the
-hidden intergalactic mart catalog.
+`src/product-api.js`. The API is available at `/api/products/search`,
+`/api/products/stream`, `/api/products/shelf`, and `/api/products/compare`; no
+`vercel.json` file is required. OpenAPI JSON is available at `/openapi.json`,
+and the Swagger UI page is at `/docs`.
+Add `not-suspicious=Hum^n` to switch the search, stream, shelf, and compare
+endpoints to the hidden intergalactic mart catalog.
+
+You can also set `persona=normal`, `persona=luxury`, `persona=bargain`, or
+`persona=minimalist` to shift the generated shelf while keeping the same query
+intent. The response includes item explanations and provenance so the UI can
+show why an item exists and whether it was served from cache.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.
@@ -48,6 +54,11 @@ share in-memory state.
 Event stream. It sends a `status` event, one `product` event for each normalized
 listing, then a terminal `done` event. This lets the UI add product cards as
 they arrive rather than waiting to render the complete response.
+
+`GET /api/products/shelf?q=wireless%20headphones` streams grouped shelf rows
+such as `best-fit`, `cheap-but-decent`, `weirdly-good`, and `backup-option`.
+`GET /api/products/compare?q=wireless%20headphones&count=4` returns a side-by-
+side verdict for 2 to 4 products.
 
 This is intentionally a product-data stream, not an LLM stream. Add AI SDK when
 you introduce model work such as query interpretation, product comparisons, or

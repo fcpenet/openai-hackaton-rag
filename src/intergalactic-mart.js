@@ -1,4 +1,5 @@
 import { createProductImage, createReviews } from "./product-presentation.js";
+import { buildExplanation, normalizePersona } from "./product-intelligence.js";
 
 function hash(value) {
   let result = 2166136261;
@@ -38,7 +39,7 @@ function createAlienQueryLabel(query) {
     .join(" ");
 }
 
-export function createIntergalacticCollection(query, limit = 12) {
+export function createIntergalacticCollection(query, limit = 12, { persona = "intergalactic" } = {}) {
   const random = seededRandom(hash(`intergalactic:${query}`));
   const baseLabel = createAlienQueryLabel(query) || "Curious Earth Thing";
   const adjectives = [
@@ -91,6 +92,7 @@ export function createIntergalacticCollection(query, limit = 12) {
     const title = `${adjective} ${noun}`;
     const description = `A ${finish} ${noun.toLowerCase()} for ${useCase}.`;
     const reviews = createReviews(`intergalactic:${itemSeed}`, title, description, { mode: "alien" });
+    const normalizedPersona = normalizePersona(persona) === "normal" ? "intergalactic" : normalizePersona(persona);
     const rank = 1 + index;
     return {
       id: `intergalactic:${hash(itemSeed).toString(36)}:${rank}`,
@@ -98,6 +100,8 @@ export function createIntergalacticCollection(query, limit = 12) {
       description: `${description} Inspired by ${baseLabel.toLowerCase()} search intent.`,
       category: "Intergalactic Mart",
       imageUrl: createProductImage(title, description),
+      persona: normalizedPersona,
+      explanation: buildExplanation({ query, persona: normalizedPersona, title, category: "Intergalactic Mart", description }),
       ...reviews,
       price: { amount: simulatedPrice(itemSeed), currency: "GCR", isSimulated: true },
       source: {
