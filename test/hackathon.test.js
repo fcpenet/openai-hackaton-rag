@@ -57,10 +57,16 @@ test("selling-fast and featured endpoints return fixed-size, unique-image collec
   assert.equal(sellingFastResponse.statusCode, 200);
   assert.equal(sellingFast.products.length, 6);
   assert.equal(new Set(sellingFast.products.map((product) => product.imageUrl)).size, 6);
+  assert.ok(sellingFast.products.every((product) => product.market.salesVelocity > 0));
+  assert.deepEqual(
+    sellingFast.products.map((product) => product.market.salesVelocity),
+    [...sellingFast.products.map((product) => product.market.salesVelocity)].sort((left, right) => right - left)
+  );
 
   const featuredResponse = createResponse();
   await handleRequest({ method: "GET", url: "/api/products/featured", headers: { host: "localhost:3000" } }, featuredResponse);
   const featured = JSON.parse(featuredResponse.body);
   assert.equal(featuredResponse.statusCode, 200);
   assert.equal(featured.products.length, 1);
+  assert.ok(featured.products[0].market.featuredScore > 0);
 });

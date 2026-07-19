@@ -73,6 +73,12 @@ show why an item exists and whether it was served from cache.
 
 `GET /api/products/selling-fast` and `GET /api/products/featured` now work
 without `q`; they fall back to a default curated shelf when omitted.
+Their ordering uses a deterministic UTC-day market simulation (inventory,
+demand, sales velocity, and trend) rather than review counts, so both shelves
+share a consistent in-world economy. New daily snapshots begin as `seeded`;
+successful checkouts persist inventory depletion and sales activity, and mark
+the affected product as `observed`. If fewer curated products remain in stock,
+the API returns the available items instead of promoting sold-out products.
 
 Checkout is auth-only. Add funds with `POST /api/wallet/topup`, add items with
 `POST /api/cart/items`, then `POST /api/checkout` to create an order. Order

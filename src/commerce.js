@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@libsql/client";
+import { simulateMarket } from "./market-economy.js";
+import { marketSetupSql } from "./market-store.js";
 
 const setupSql = [
   `CREATE TABLE IF NOT EXISTS wallet_accounts (
@@ -55,7 +57,8 @@ const setupSql = [
   )`,
   "CREATE INDEX IF NOT EXISTS wallet_ledger_user_created_idx ON wallet_ledger(user_id, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS cart_items_user_updated_idx ON cart_items(user_id, updated_at DESC)",
-  "CREATE INDEX IF NOT EXISTS orders_user_created_idx ON orders(user_id, created_at DESC)"
+  "CREATE INDEX IF NOT EXISTS orders_user_created_idx ON orders(user_id, created_at DESC)",
+  marketSetupSql
 ];
 
 export class CommerceStore {
@@ -207,11 +210,36 @@ export class CommerceStore {
           sql: "INSERT INTO order_items (order_id, item_id, quantity, unit_price, product_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
           args: [orderId, entry.product.id, entry.quantity, entry.product.price.amount, JSON.stringify(entry.product), createdAt]
         });
+        await this.#recordMarketSale(entry.product, entry.quantity, now);
       }
       if (source === "cart") {
         await this.client.execute({ sql: "DELETE FROM cart_items WHERE user_id = ?", args: [userId] });
       }
       return this.getOrder(userId, orderId);
+    });
+  }
+
+  async #recordMarketSale(product, quantity, now) {
+    const baseline = product.market || simulateMarket(product, { now });
+    const timestamp = now.toISOString();
+    await this.client.execute({
+      sql: `INSERT INTO market_snapshots
+            (product_id, market_day, inventory, units_sold, sales_velocity, demand_score, featured_score, trend, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(product_id, market_day) DO NOTHING`,
+      args: [product.id, baseline.day, baseline.inventory, baseline.unitsSold, baseline.salesVelocity, baseline.demandScore, baseline.featuredScore, baseline.trend, timestamp, timestamp]
+    });
+    await this.client.execute({
+      sql: `UPDATE market_snapshots SET
+              inventory = MAX(0, inventory - ?),
+              units_sold = units_sold + ?,
+              sales_velocity = sales_velocity + ?,
+              demand_score = demand_score + ?,
+              featured_score = featured_score + ?,
+              trend = 'rising',
+              updated_at = ?
+            WHERE product_id = ? AND market_day = ?`,
+      args: [quantity, quantity, quantity, quantity * 10, quantity * 6, timestamp, product.id, baseline.day]
     });
   }
 

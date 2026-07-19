@@ -2,6 +2,8 @@ import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { CommerceStore } from "./commerce.js";
 import { createIntergalacticCollection } from "./intergalactic-mart.js";
+import { compareFeatured, compareSalesVelocity, enrichWithMarket } from "./market-economy.js";
+import { MarketStore } from "./market-store.js";
 import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
 import { buildCompareVerdicts, buildShelfRows, normalizePersona, repairGeneratedProduct } from "./product-intelligence.js";
@@ -11,6 +13,7 @@ const port = Number(process.env.PORT || 3000);
 let catalogPromise;
 let userStorePromise;
 let commerceStorePromise;
+let marketStorePromise;
 
 async function getCatalog() {
   if (!catalogPromise) {
@@ -44,6 +47,15 @@ async function getCommerceStore() {
 
 export function setCommerceStoreForTesting(store) {
   commerceStorePromise = store ? Promise.resolve(store) : undefined;
+}
+
+async function getMarketStore() {
+  if (!marketStorePromise) marketStorePromise = Promise.resolve().then(() => new MarketStore()).catch(() => null);
+  return marketStorePromise;
+}
+
+export function setMarketStoreForTesting(store) {
+  marketStorePromise = store ? Promise.resolve(store) : undefined;
 }
 
 function json(response, status, body, headers = {}) {
@@ -870,9 +882,10 @@ function getOpenApiDocument() {
             },
             price: { $ref: "#/components/schemas/Price" },
             source: { $ref: "#/components/schemas/Source" },
-            provenance: { $ref: "#/components/schemas/Provenance" }
+            provenance: { $ref: "#/components/schemas/Provenance" },
+            market: { $ref: "#/components/schemas/MarketState" }
           },
-          required: ["id", "title", "category", "imageUrl", "persona", "explanation", "rating", "reviewCount", "reviews", "price", "source", "provenance"]
+          required: ["id", "title", "category", "imageUrl", "persona", "explanation", "rating", "reviewCount", "reviews", "price", "source", "provenance", "market"]
         },
         Review: {
           type: "object",
@@ -894,6 +907,21 @@ function getOpenApiDocument() {
             isSimulated: { type: "boolean" }
           },
           required: ["amount", "currency", "isSimulated"]
+        },
+        MarketState: {
+          type: "object",
+          description: "Deterministic simulated market state for the current UTC day.",
+          properties: {
+            day: { type: "string", format: "date" },
+            source: { type: "string", enum: ["seeded", "observed"], description: "Whether real checkouts have influenced this product today" },
+            inventory: { type: "integer", minimum: 0 },
+            unitsSold: { type: "integer", minimum: 0 },
+            salesVelocity: { type: "integer", minimum: 0, description: "Simulated units sold today" },
+            demandScore: { type: "integer", minimum: 0 },
+            featuredScore: { type: "integer", minimum: 0 },
+            trend: { type: "string", enum: ["rising", "steady", "cooling"] }
+          },
+          required: ["day", "source", "inventory", "unitsSold", "salesVelocity", "demandScore", "featuredScore", "trend"]
         },
         Source: {
           type: "object",
@@ -979,8 +1007,13 @@ async function resolveCollection(query, limit, persona = "normal") {
     }, { query, persona, cached: Boolean(cached) });
   });
   if (changed && catalog) await catalog.set(collectionKey, collection);
+  const marketStore = await getMarketStore();
+  const products = await Promise.all(collection.slice(0, limit).map(async (product) => ({
+    ...product,
+    market: marketStore ? await marketStore.getMarket(product) : enrichWithMarket(product).market
+  })));
   return {
-    products: collection.slice(0, limit),
+    products,
     source: cached ? "catalog" : (persona === "intergalactic" ? "intergalactic-mart" : "on-demand-catalog"),
     cached,
     persona,
@@ -1043,7 +1076,10 @@ async function handleCuratedCollection(request, url, response, { count, sort }) 
     const curatedUrl = new URL(url.toString());
     curatedUrl.searchParams.set("q", defaultCuratedQuery("curated picks", query));
     const result = await resolvePersonalizedCollection(request, curatedUrl, count);
-    const products = [...result.products].sort(sort).slice(0, count);
+    const products = [...result.products]
+      .filter((product) => product.market.inventory > 0)
+      .sort(sort)
+      .slice(0, count);
     return json(response, 200, {
       products,
       source: result.source,
@@ -1179,14 +1215,14 @@ async function handleOrderStatus(request, response, orderId) {
 async function handleSellingFast(request, url, response) {
   return handleCuratedCollection(request, url, response, {
     count: 6,
-    sort: (left, right) => (right.reviewCount - left.reviewCount) || (right.rating || 0) - (left.rating || 0)
+    sort: compareSalesVelocity
   });
 }
 
 async function handleFeatured(request, url, response) {
   return handleCuratedCollection(request, url, response, {
     count: 1,
-    sort: (left, right) => (right.rating || 0) - (left.rating || 0) || right.reviewCount - left.reviewCount
+    sort: compareFeatured
   });
 }
 
