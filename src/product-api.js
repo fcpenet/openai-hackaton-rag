@@ -1012,6 +1012,10 @@ async function resolveCollection(query, limit, persona = "normal") {
     ...product,
     market: marketStore ? await marketStore.getMarket(product) : enrichWithMarket(product).market
   })));
+  const duplicateImages = products.length - new Set(products.map((product) => product.imageUrl)).size;
+  if (duplicateImages > 0) {
+    console.warn(`[product-api] duplicate imageUrl values detected for query "${query}" (${duplicateImages} duplicates)`);
+  }
   return {
     products,
     source: cached ? "catalog" : (persona === "intergalactic" ? "intergalactic-mart" : "on-demand-catalog"),
