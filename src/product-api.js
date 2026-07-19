@@ -1,5 +1,6 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { CommerceStore } from "./commerce.js";
 import { createIntergalacticCollection } from "./intergalactic-mart.js";
 import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
@@ -9,6 +10,7 @@ import { normalizeEmail, validateRegistration } from "./users.js";
 const port = Number(process.env.PORT || 3000);
 let catalogPromise;
 let userStorePromise;
+let commerceStorePromise;
 
 async function getCatalog() {
   if (!catalogPromise) {
@@ -33,6 +35,17 @@ export function setUserStoreForTesting(store) {
   userStorePromise = store ? Promise.resolve(store) : undefined;
 }
 
+async function getCommerceStore() {
+  if (!commerceStorePromise) {
+    commerceStorePromise = Promise.resolve().then(() => new CommerceStore()).catch(() => null);
+  }
+  return commerceStorePromise;
+}
+
+export function setCommerceStoreForTesting(store) {
+  commerceStorePromise = store ? Promise.resolve(store) : undefined;
+}
+
 function json(response, status, body, headers = {}) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
   response.end(JSON.stringify(body));
@@ -45,6 +58,7 @@ function html(response, status, body, headers = {}) {
 
 async function readJson(request) {
   if (request.body && typeof request.body === "object" && !request[Symbol.asyncIterator]) return request.body;
+  if (!request || typeof request[Symbol.asyncIterator] !== "function") return request.body && typeof request.body === "object" ? request.body : {};
   const chunks = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -63,6 +77,30 @@ async function readJson(request) {
 function bearerToken(request) {
   const value = request.headers.authorization || request.headers.Authorization || "";
   return /^Bearer\s+(.+)$/i.exec(value)?.[1]?.trim();
+}
+
+async function requireAuthedUser(request, response) {
+  const token = bearerToken(request);
+  if (!token) {
+    json(response, 401, { error: "Authentication required" });
+    return null;
+  }
+  const store = await getUserStore();
+  if (!store) {
+    json(response, 503, { error: "User storage is unavailable. Configure Turso to enable accounts." });
+    return null;
+  }
+  try {
+    const user = await store.getUserForToken(token);
+    if (!user) {
+      json(response, 401, { error: "Authentication required" });
+      return null;
+    }
+    return { store, user };
+  } catch (error) {
+    json(response, 502, { error: error.message || "Could not load user" });
+    return null;
+  }
 }
 
 async function handleRegistration(request, response) {
@@ -143,6 +181,10 @@ function parseSearch(url) {
   const requestedPersona = url.searchParams.get("persona");
   const persona = secretMode ? "intergalactic" : normalizePersona(requestedPersona || "normal");
   return { query, limit, secretMode, persona, hasExplicitPersona: Boolean(requestedPersona) };
+}
+
+function defaultCuratedQuery(label, query) {
+  return query || label;
 }
 
 function getOpenApiDocument() {
@@ -326,13 +368,12 @@ function getOpenApiDocument() {
         get: {
           summary: "Get the six fastest-selling products for a search",
           parameters: [
-            { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Search phrase for the product collection" },
+            { name: "q", in: "query", required: false, schema: { type: "string" }, description: "Search phrase for the product collection" },
             { name: "not-suspicious", in: "query", required: false, schema: { type: "string", enum: ["Hum^n"] } },
             { name: "persona", in: "query", required: false, schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] } }
           ],
           responses: {
             "200": { description: "Six products ordered by simulated sales velocity", content: { "application/json": { schema: { $ref: "#/components/schemas/ProductCollection" } } } },
-            "400": { description: "Missing q parameter" },
             "502": { description: "Product generation failed" }
           }
         }
@@ -341,13 +382,12 @@ function getOpenApiDocument() {
         get: {
           summary: "Get the featured product for a search",
           parameters: [
-            { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Search phrase for the product collection" },
+            { name: "q", in: "query", required: false, schema: { type: "string" }, description: "Search phrase for the product collection" },
             { name: "not-suspicious", in: "query", required: false, schema: { type: "string", enum: ["Hum^n"] } },
             { name: "persona", in: "query", required: false, schema: { type: "string", enum: ["normal", "luxury", "bargain", "minimalist"] } }
           ],
           responses: {
             "200": { description: "One featured product", content: { "application/json": { schema: { $ref: "#/components/schemas/ProductCollection" } } } },
-            "400": { description: "Missing q parameter" },
             "502": { description: "Product generation failed" }
           }
         }
@@ -490,6 +530,149 @@ function getOpenApiDocument() {
             }
           }
         }
+      },
+      "/api/cart": {
+        get: {
+          summary: "Get the authenticated user's cart",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Cart contents", content: { "application/json": { schema: { $ref: "#/components/schemas/Cart" } } } },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/cart/items": {
+        post: {
+          summary: "Add an item to the authenticated user's cart",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CartItemInput" } } }
+          },
+          responses: {
+            "200": { description: "Updated cart", content: { "application/json": { schema: { $ref: "#/components/schemas/Cart" } } } },
+            "400": { description: "Invalid cart item" },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/cart/items/{itemId}": {
+        delete: {
+          summary: "Remove an item from the authenticated user's cart",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "itemId", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Updated cart", content: { "application/json": { schema: { $ref: "#/components/schemas/Cart" } } } },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/wallet": {
+        get: {
+          summary: "Get the authenticated user's wallet",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Wallet state", content: { "application/json": { schema: { $ref: "#/components/schemas/Wallet" } } } },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/wallet/topup": {
+        post: {
+          summary: "Add funds to the authenticated user's wallet",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/TopUpRequest" } } }
+          },
+          responses: {
+            "200": { description: "Updated wallet", content: { "application/json": { schema: { $ref: "#/components/schemas/Wallet" } } } },
+            "400": { description: "Invalid amount" },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/wallet/transactions": {
+        get: {
+          summary: "List wallet transactions",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": {
+              description: "Wallet transaction ledger",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { transactions: { type: "array", items: { $ref: "#/components/schemas/WalletTransaction" } } },
+                    required: ["transactions"]
+                  }
+                }
+              }
+            },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/checkout": {
+        post: {
+          summary: "Checkout items for the authenticated user",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: false,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CheckoutRequest" } } }
+          },
+          responses: {
+            "200": { description: "Created order", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+            "400": { description: "Invalid checkout" },
+            "401": { description: "Authentication required" },
+            "402": { description: "Insufficient wallet balance" }
+          }
+        }
+      },
+      "/api/orders": {
+        get: {
+          summary: "List the authenticated user's orders",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": {
+              description: "Order history",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { orders: { type: "array", items: { $ref: "#/components/schemas/Order" } } },
+                    required: ["orders"]
+                  }
+                }
+              }
+            },
+            "401": { description: "Authentication required" }
+          }
+        }
+      },
+      "/api/orders/{orderId}": {
+        get: {
+          summary: "Get one authenticated order",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Order details", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+            "401": { description: "Authentication required" },
+            "404": { description: "Order not found" }
+          }
+        }
+      },
+      "/api/orders/{orderId}/status": {
+        get: {
+          summary: "Get the delivery status for an authenticated order",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Order delivery status", content: { "application/json": { schema: { $ref: "#/components/schemas/OrderStatus" } } } },
+            "401": { description: "Authentication required" },
+            "404": { description: "Order not found" }
+          }
+        }
       }
     },
     components: {
@@ -507,6 +690,117 @@ function getOpenApiDocument() {
             provenance: { $ref: "#/components/schemas/Provenance" }
           },
           required: ["products", "source", "generatedOnDemand", "persona", "provenance"]
+        },
+        CartItemInput: {
+          type: "object",
+          properties: {
+            product: { $ref: "#/components/schemas/Product" },
+            quantity: { type: "integer", minimum: 1, default: 1 }
+          },
+          required: ["product"]
+        },
+        CartItem: {
+          type: "object",
+          properties: {
+            itemId: { type: "string" },
+            quantity: { type: "integer" },
+            product: { $ref: "#/components/schemas/Product" },
+            addedAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" }
+          },
+          required: ["itemId", "quantity", "product", "addedAt", "updatedAt"]
+        },
+        Cart: {
+          type: "object",
+          properties: {
+            items: { type: "array", items: { $ref: "#/components/schemas/CartItem" } },
+            itemCount: { type: "integer" },
+            totalAmount: { type: "integer" },
+            currency: { type: "string" }
+          },
+          required: ["items", "itemCount", "totalAmount", "currency"]
+        },
+        TopUpRequest: {
+          type: "object",
+          properties: {
+            amount: { type: "integer", minimum: 1 },
+            metadata: { type: "object", additionalProperties: true }
+          },
+          required: ["amount"]
+        },
+        Wallet: {
+          type: "object",
+          properties: {
+            userId: { type: "string" },
+            balance: { type: "integer" },
+            createdAt: { type: ["string", "null"], format: "date-time" },
+            updatedAt: { type: ["string", "null"], format: "date-time" }
+          },
+          required: ["userId", "balance", "createdAt", "updatedAt"]
+        },
+        WalletTransaction: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            kind: { type: "string" },
+            amount: { type: "integer" },
+            balanceAfter: { type: "integer" },
+            metadata: { type: "object", additionalProperties: true },
+            createdAt: { type: "string", format: "date-time" }
+          },
+          required: ["id", "kind", "amount", "balanceAfter", "metadata", "createdAt"]
+        },
+        CheckoutRequest: {
+          type: "object",
+          properties: {
+            source: { type: "string", enum: ["cart", "direct"] },
+            items: { type: "array", items: { $ref: "#/components/schemas/CartItemInput" } }
+          }
+        },
+        OrderItem: {
+          type: "object",
+          properties: {
+            itemId: { type: "string" },
+            quantity: { type: "integer" },
+            unitPrice: { type: "integer" },
+            product: { $ref: "#/components/schemas/Product" },
+            createdAt: { type: "string", format: "date-time" }
+          },
+          required: ["itemId", "quantity", "unitPrice", "product", "createdAt"]
+        },
+        OrderStatus: {
+          type: "object",
+          properties: {
+            orderId: { type: "string" },
+            status: { type: "string" },
+            nextStatus: { type: ["string", "null"] },
+            estimatedDeliveryAt: { type: ["string", "null"], format: "date-time" },
+            timeline: { type: "array", items: { type: "object" } },
+            paymentStatus: { type: "string" },
+            totalAmount: { type: "integer" },
+            currency: { type: "string" }
+          },
+          required: ["orderId", "status", "nextStatus", "estimatedDeliveryAt", "timeline", "paymentStatus", "totalAmount", "currency"]
+        },
+        Order: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            status: { type: "string" },
+            nextStatus: { type: ["string", "null"] },
+            estimatedDeliveryAt: { type: ["string", "null"], format: "date-time" },
+            deliverySchedule: { type: "object" },
+            deliveryTimeline: { type: "array", items: { type: "object" } },
+            paymentStatus: { type: "string" },
+            totalAmount: { type: "integer" },
+            currency: { type: "string" },
+            itemCount: { type: "integer" },
+            checkoutSource: { type: "string" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+            items: { type: "array", items: { $ref: "#/components/schemas/OrderItem" } }
+          },
+          required: ["id", "status", "nextStatus", "estimatedDeliveryAt", "deliverySchedule", "deliveryTimeline", "paymentStatus", "totalAmount", "currency", "itemCount", "checkoutSource", "createdAt", "updatedAt"]
         },
         RegisterInput: {
           type: "object",
@@ -745,9 +1039,10 @@ async function handleSearch(request, url, response) {
 
 async function handleCuratedCollection(request, url, response, { count, sort }) {
   const { query } = parseSearch(url);
-  if (!query) return json(response, 400, { error: "q is required" });
   try {
-    const result = await resolvePersonalizedCollection(request, url, count);
+    const curatedUrl = new URL(url.toString());
+    curatedUrl.searchParams.set("q", defaultCuratedQuery("curated picks", query));
+    const result = await resolvePersonalizedCollection(request, curatedUrl, count);
     const products = [...result.products].sort(sort).slice(0, count);
     return json(response, 200, {
       products,
@@ -758,6 +1053,126 @@ async function handleCuratedCollection(request, url, response, { count, sort }) 
     }, { "cache-control": "no-store" });
   } catch (error) {
     return json(response, 502, { error: error.message || "Product collection failed" });
+  }
+}
+
+async function requireCommerceUser(request, response) {
+  const auth = await requireAuthedUser(request, response);
+  if (!auth) return null;
+  const commerce = await getCommerceStore();
+  if (!commerce) {
+    json(response, 503, { error: "Commerce storage is unavailable. Configure Turso to enable carts and checkout." });
+    return null;
+  }
+  return { ...auth, commerce };
+}
+
+async function handleCartGet(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    return json(response, 200, await auth.commerce.getCart(auth.user.id), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load cart" });
+  }
+}
+
+async function handleCartAdd(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    return json(response, 200, await auth.commerce.addCartItem(auth.user.id, await readJson(request)), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, error.status || 502, { error: error.message || "Could not update cart" });
+  }
+}
+
+async function handleCartRemove(request, response, itemId) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    return json(response, 200, await auth.commerce.removeCartItem(auth.user.id, itemId), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, error.status || 502, { error: error.message || "Could not update cart" });
+  }
+}
+
+async function handleWalletGet(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    return json(response, 200, await auth.commerce.getWallet(auth.user.id), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load wallet" });
+  }
+}
+
+async function handleWalletTopUp(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    const input = await readJson(request);
+    return json(response, 200, await auth.commerce.topUpWallet(auth.user.id, input.amount, input.metadata || {}), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, error.status || 502, { error: error.message || "Could not add funds" });
+  }
+}
+
+async function handleWalletTransactions(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const limit = Number(url.searchParams.get("limit") || 50);
+    return json(response, 200, { transactions: await auth.commerce.listWalletTransactions(auth.user.id, limit) }, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load transactions" });
+  }
+}
+
+async function handleCheckout(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    return json(response, 200, await auth.commerce.checkout(auth.user.id, await readJson(request)), { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, error.status || 502, { error: error.message || "Could not checkout" });
+  }
+}
+
+async function handleOrdersList(request, response) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const limit = Number(url.searchParams.get("limit") || 20);
+    return json(response, 200, { orders: await auth.commerce.listOrders(auth.user.id, limit) }, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load orders" });
+  }
+}
+
+async function handleOrderGet(request, response, orderId) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    const order = await auth.commerce.getOrder(auth.user.id, orderId);
+    if (!order) return json(response, 404, { error: "Order not found" });
+    return json(response, 200, order, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load order" });
+  }
+}
+
+async function handleOrderStatus(request, response, orderId) {
+  const auth = await requireCommerceUser(request, response);
+  if (!auth) return;
+  try {
+    const status = await auth.commerce.getOrderStatus(auth.user.id, orderId);
+    if (!status) return json(response, 404, { error: "Order not found" });
+    return json(response, 200, status, { "cache-control": "no-store" });
+  } catch (error) {
+    return json(response, 502, { error: error.message || "Could not load order status" });
   }
 }
 
@@ -873,6 +1288,22 @@ export async function handleRequest(request, response) {
     }
     if (request.method === "GET" && url.pathname === "/api/products/selling-fast") return handleSellingFast(request, url, response);
     if (request.method === "GET" && url.pathname === "/api/products/featured") return handleFeatured(request, url, response);
+    if (request.method === "GET" && url.pathname === "/api/cart") return handleCartGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/cart/items") return handleCartAdd(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/cart/items/")) {
+      return handleCartRemove(request, response, decodeURIComponent(url.pathname.slice("/api/cart/items/".length)));
+    }
+    if (request.method === "GET" && url.pathname === "/api/wallet") return handleWalletGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/wallet/topup") return handleWalletTopUp(request, response);
+    if (request.method === "GET" && url.pathname === "/api/wallet/transactions") return handleWalletTransactions(request, response);
+    if (request.method === "POST" && url.pathname === "/api/checkout") return handleCheckout(request, response);
+    if (request.method === "GET" && url.pathname === "/api/orders") return handleOrdersList(request, response);
+    if (request.method === "GET" && /^\/api\/orders\/[^/]+\/status$/.test(url.pathname)) {
+      return handleOrderStatus(request, response, decodeURIComponent(url.pathname.slice("/api/orders/".length, -"/status".length)));
+    }
+    if (request.method === "GET" && /^\/api\/orders\/[^/]+$/.test(url.pathname)) {
+      return handleOrderGet(request, response, decodeURIComponent(url.pathname.slice("/api/orders/".length)));
+    }
     if (request.method === "GET" && url.pathname === "/api/products/stream") {
       return handleStream(request, url, response);
     }

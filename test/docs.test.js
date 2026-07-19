@@ -26,6 +26,11 @@ test("serves OpenAPI document and docs page", async () => {
   assert.ok(openApi.paths["/api/products/search"]);
   assert.ok(openApi.paths["/api/products/selling-fast"]);
   assert.ok(openApi.paths["/api/products/featured"]);
+  assert.ok(openApi.paths["/api/cart"]);
+  assert.ok(openApi.paths["/api/cart/items"]);
+  assert.ok(openApi.paths["/api/wallet"]);
+  assert.ok(openApi.paths["/api/checkout"]);
+  assert.ok(openApi.paths["/api/orders"]);
   assert.ok(openApi.paths["/api/users/register"]);
   assert.ok(openApi.paths["/api/users/login"]);
   assert.ok(openApi.paths["/api/users/me"]);

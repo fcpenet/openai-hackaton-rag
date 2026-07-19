@@ -58,6 +58,8 @@ in `api/products/` and `api/users/`, which delegate to the shared handlers in
 `src/product-api.js`. The API is available at `/api/products/search`,
 `/api/products/stream`, `/api/products/shelf`, `/api/products/compare`,
 `/api/products/selling-fast`, `/api/products/featured`,
+`/api/cart`, `/api/wallet`, `/api/wallet/topup`, `/api/wallet/transactions`,
+`/api/checkout`, `/api/orders`, `/api/orders/:orderId`, `/api/orders/:orderId/status`,
 `/api/users/register`, `/api/users/login`, `/api/users/me`, and
 `/api/users/logout`; no `vercel.json` file is required. OpenAPI JSON is
 available at `/openapi.json`, and the Swagger UI page is at `/docs`.
@@ -68,6 +70,13 @@ You can also set `persona=normal`, `persona=luxury`, `persona=bargain`, or
 `persona=minimalist` to shift the generated shelf while keeping the same query
 intent. The response includes item explanations and provenance so the UI can
 show why an item exists and whether it was served from cache.
+
+`GET /api/products/selling-fast` and `GET /api/products/featured` now work
+without `q`; they fall back to a default curated shelf when omitted.
+
+Checkout is auth-only. Add funds with `POST /api/wallet/topup`, add items with
+`POST /api/cart/items`, then `POST /api/checkout` to create an order. Order
+status and ETA are available from `/api/orders/:orderId/status`.
 
 1. Import this repository into Vercel or run `npx vercel` from the project root.
 2. Add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel Project Settings.

@@ -52,14 +52,14 @@ test("shelf streams grouped rows and compare returns verdicts", async () => {
 
 test("selling-fast and featured endpoints return fixed-size, unique-image collections", async () => {
   const sellingFastResponse = createResponse();
-  await handleRequest({ method: "GET", url: "/api/products/selling-fast?q=portable%20desk", headers: { host: "localhost:3000" } }, sellingFastResponse);
+  await handleRequest({ method: "GET", url: "/api/products/selling-fast", headers: { host: "localhost:3000" } }, sellingFastResponse);
   const sellingFast = JSON.parse(sellingFastResponse.body);
   assert.equal(sellingFastResponse.statusCode, 200);
   assert.equal(sellingFast.products.length, 6);
   assert.equal(new Set(sellingFast.products.map((product) => product.imageUrl)).size, 6);
 
   const featuredResponse = createResponse();
-  await handleRequest({ method: "GET", url: "/api/products/featured?q=portable%20desk", headers: { host: "localhost:3000" } }, featuredResponse);
+  await handleRequest({ method: "GET", url: "/api/products/featured", headers: { host: "localhost:3000" } }, featuredResponse);
   const featured = JSON.parse(featuredResponse.body);
   assert.equal(featuredResponse.statusCode, 200);
   assert.equal(featured.products.length, 1);
