@@ -52,7 +52,7 @@ function illustration(title, description, variant) {
   const badgeY = 44 + ((value >>> 8) % 30);
   const layout = value % 8;
   const variantMark = `<g transform="rotate(${rotation} 200 170)"><circle cx="${badgeX}" cy="${badgeY}" r="24" fill="${accentLight}"/><path d="M${badgeX - 11} ${badgeY}h22M${badgeX} ${badgeY - 11}v22" stroke="${accent}" stroke-width="7" stroke-linecap="round"/></g>`;
-  if (/phone|smartphone|iphone/.test(subject)) {
+  if (/\b(phone|smartphone|iphone|mobile|android)\b/.test(subject)) {
     return `<rect x="116" y="30" width="168" height="260" rx="24" fill="${neutral}"/><rect x="128" y="52" width="144" height="200" rx="12" fill="${accentLight}"/><rect x="142" y="66" width="116" height="170" rx="8" fill="${accentSoft}" opacity="0.75"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>${variantMark}`;
   }
   if (/headphone|headset|earbud/.test(subject)) {

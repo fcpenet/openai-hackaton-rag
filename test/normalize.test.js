@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Catalog } from "../src/catalog.js";
-import { createReviewText, createReviewTitle } from "../src/product-presentation.js";
+import { createProductImage, createReviewText, createReviewTitle } from "../src/product-presentation.js";
 import { createIntergalacticCollection } from "../src/intergalactic-mart.js";
 import { createOnDemandCollection } from "../src/on-demand-catalog.js";
 
@@ -57,6 +57,14 @@ test("gives every generated item distinct copy and artwork", () => {
     assert.equal(new Set(collection.map((product) => product.description)).size, collection.length);
     assert.equal(new Set(collection.map((product) => product.imageUrl)).size, collection.length);
   }
+});
+
+test("headphones do not render as phone silhouettes", () => {
+  const phoneSvg = decodeURIComponent(createProductImage("iPhone Pro", "compact smart phone", "phone-variant").replace("data:image/svg+xml,", ""));
+  const headphoneSvg = decodeURIComponent(createProductImage("Wireless Headphones", "portable audio gear", "audio-variant").replace("data:image/svg+xml,", ""));
+  assert.match(phoneSvg, /<rect x="116" y="30" width="168" height="260" rx="24"/);
+  assert.doesNotMatch(headphoneSvg, /<rect x="116" y="30" width="168" height="260" rx="24"/);
+  assert.match(headphoneSvg, /M100 205V155/);
 });
 
 test("purges legacy v2 catalog rows before using the cache", async () => {
