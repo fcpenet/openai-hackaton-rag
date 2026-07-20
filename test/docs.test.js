@@ -50,4 +50,12 @@ test("serves OpenAPI document and docs page", async () => {
   assert.equal(economyResponse.statusCode, 200);
   assert.match(economyResponse.body, /Real World Economy/);
   assert.match(economyResponse.body, /Live market simulator/);
+
+  const mechanicsResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/mechanics", headers: { host: "localhost:3000" } }, mechanicsResponse);
+  assert.equal(mechanicsResponse.statusCode, 200);
+  assert.match(mechanicsResponse.body, /How the catalog works/);
+  assert.match(mechanicsResponse.body, /Pricing/);
+  assert.match(mechanicsResponse.body, /Image generation/);
+  assert.match(mechanicsResponse.body, /Product generation/);
 });

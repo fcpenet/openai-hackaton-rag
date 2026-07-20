@@ -81,6 +81,8 @@ the affected product as `observed`. If fewer curated products remain in stock,
 the API returns the available items instead of promoting sold-out products.
 The separate `/economy` page shows the same market data in a richer dashboard
 layout, so it is a good place for demos and screenshots.
+The separate `/mechanics` page explains pricing, image generation, and product
+generation in a visual format.
 
 Normal searches are spell-corrected against English before product generation,
 so typos like `Milkt Tea Cups` resolve to the nearest readable query. The

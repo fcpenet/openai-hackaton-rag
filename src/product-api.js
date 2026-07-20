@@ -966,6 +966,7 @@ function getDocsHtml() {
   <body>
     <div style="position:fixed;top:14px;right:16px;z-index:10;font:600 12px/1.2 system-ui,sans-serif;">
       <a href="/economy" style="color:#111827;text-decoration:none;border:1px solid #d1d5db;background:#fff;padding:10px 14px;border-radius:999px;box-shadow:0 4px 18px rgba(17,24,39,0.08);">Market view</a>
+      <a href="/mechanics" style="margin-left:10px;color:#111827;text-decoration:none;border:1px solid #d1d5db;background:#fff;padding:10px 14px;border-radius:999px;box-shadow:0 4px 18px rgba(17,24,39,0.08);">How it works</a>
     </div>
     <div id="swagger-ui"></div>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
@@ -1270,6 +1271,7 @@ function getEconomyHtml() {
             <div class="controls">
               <input id="query" class="input" value="${new URLSearchParams().get("q") || "wireless headphones"}" placeholder="Search a product intent" />
               <button id="load" class="button">Load market</button>
+              <a class="button secondary" href="/mechanics" style="text-decoration:none;display:inline-flex;align-items:center;">How it works</a>
               <a class="button secondary" href="/docs" style="text-decoration:none;display:inline-flex;align-items:center;">API docs</a>
             </div>
           </div>
@@ -1412,6 +1414,392 @@ function getEconomyHtml() {
         console.error(error);
       });
     </script>
+  </body>
+</html>`;
+}
+
+function getMechanicsHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Catalog Mechanics</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3efe7;
+        --panel: rgba(255, 251, 244, 0.86);
+        --panel-strong: #fff8ee;
+        --text: #1a1a1a;
+        --muted: #6b7280;
+        --border: rgba(17, 24, 39, 0.08);
+        --shadow: 0 24px 80px rgba(17, 24, 39, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(37,99,235,0.08), transparent 32%),
+          radial-gradient(circle at top right, rgba(31,157,85,0.08), transparent 28%),
+          linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52)),
+          var(--bg);
+      }
+      a { color: inherit; }
+      .page { min-height: 100vh; padding: 24px; }
+      .shell { max-width: 1180px; margin: 0 auto; }
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 30px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        background:
+          linear-gradient(135deg, rgba(255, 248, 237, 0.96), rgba(255, 255, 255, 0.78)),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='420' viewBox='0 0 1200 420'%3E%3Cg fill='none' stroke='%23d7d0c2' stroke-opacity='.55'%3E%3Cpath d='M0 54H1200M0 118H1200M0 182H1200M0 246H1200M0 310H1200M0 374H1200'/%3E%3Cpath d='M118 18V402M264 18V402M410 18V402M556 18V402M702 18V402M848 18V402M994 18V402M1140 18V402'/%3E%3C/g%3E%3C/svg%3E") center/cover;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #b45309;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(34px, 5vw, 60px);
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+      .lede {
+        max-width: 760px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 15px;
+      }
+      .nav {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .nav a, .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        text-decoration: none;
+        font-weight: 700;
+        box-shadow: 0 6px 24px rgba(17, 24, 39, 0.05);
+      }
+      .nav a.primary {
+        background: #171717;
+        color: white;
+        border-color: #171717;
+      }
+      .bands {
+        margin-top: 20px;
+        display: grid;
+        gap: 18px;
+      }
+      .band {
+        padding: 22px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.78);
+        box-shadow: 0 8px 40px rgba(17,24,39,0.05);
+      }
+      .band-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        margin-bottom: 16px;
+      }
+      .band-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .band-head p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .card {
+        border-radius: 20px;
+        border: 1px solid rgba(17,24,39,0.08);
+        background: var(--panel-strong);
+        overflow: hidden;
+      }
+      .card .topline {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 0;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .card h3 {
+        margin: 10px 18px 8px;
+        font-size: 19px;
+        line-height: 1.2;
+      }
+      .card p {
+        margin: 0 18px 18px;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .card ul {
+        margin: 0 18px 18px 36px;
+        padding: 0;
+        color: var(--text);
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .card .frame {
+        padding: 18px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.28)),
+          radial-gradient(circle at top left, rgba(37,99,235,0.06), transparent 40%),
+          radial-gradient(circle at bottom right, rgba(31,157,85,0.06), transparent 42%);
+      }
+      .mini-bars {
+        display: flex;
+        align-items: end;
+        gap: 10px;
+        min-height: 160px;
+      }
+      .mini-bars .bar {
+        flex: 1;
+        border-radius: 14px 14px 4px 4px;
+        min-height: 24px;
+        background: linear-gradient(180deg, rgba(37,99,235,0.92), rgba(37,99,235,0.28));
+        position: relative;
+      }
+      .mini-bars .bar::after {
+        content: attr(data-label);
+        position: absolute;
+        inset: auto 0 -22px;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .diagram {
+        position: relative;
+        min-height: 180px;
+        border-radius: 22px;
+        border: 1px dashed rgba(17,24,39,0.12);
+        background:
+          radial-gradient(circle at 30% 35%, rgba(37,99,235,0.16), transparent 16%),
+          radial-gradient(circle at 68% 40%, rgba(31,157,85,0.16), transparent 18%),
+          radial-gradient(circle at 48% 68%, rgba(217,119,6,0.16), transparent 18%),
+          #fffdf8;
+      }
+      .diagram .node {
+        position: absolute;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid rgba(17,24,39,0.08);
+        box-shadow: 0 10px 30px rgba(17,24,39,0.06);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .diagram .node small {
+        display: block;
+        margin-top: 4px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .footer {
+        margin: 20px 0 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 940px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 640px) {
+        .page { padding: 14px; }
+        .hero, .band { padding: 18px; border-radius: 20px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="shell">
+        <section class="hero">
+          <div class="top">
+            <div>
+              <div class="eyebrow">Catalog mechanics</div>
+              <h1>How the catalog works</h1>
+              <p class="lede">This page explains the three pieces people usually ask about first: pricing, image generation, and product generation. It is the short version of the system behind the store, written for demos and non-technical review.</p>
+            </div>
+            <div class="nav">
+              <a class="primary" href="/economy">Market view</a>
+              <a href="/docs">API docs</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="bands">
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Pricing</h2>
+                <p>How item prices are produced and why they vary.</p>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:34%;background:linear-gradient(180deg,#60a5fa,#bfdbfe)" data-label="budget"></div>
+                    <div class="bar" style="height:62%;background:linear-gradient(180deg,#34d399,#bbf7d0)" data-label="mid"></div>
+                    <div class="bar" style="height:88%;background:linear-gradient(180deg,#f97316,#fed7aa)" data-label="premium"></div>
+                  </div>
+                </div>
+                <h3>Broad price bands</h3>
+                <p>Products are assigned to tiered price bands, then nudged inside that band with a deterministic seed. That gives us a real spread without making the numbers random from one refresh to the next.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="diagram">
+                    <div class="node" style="left:16px;top:18px;">Search intent<small>what the user typed</small></div>
+                    <div class="node" style="right:16px;top:26px;">Persona<small>normal, luxury, bargain, minimalist</small></div>
+                    <div class="node" style="left:50%;bottom:18px;transform:translateX(-50%);">Price seed<small>query + item id</small></div>
+                  </div>
+                </div>
+                <h3>Deterministic per item</h3>
+                <p>The same search and same item ID always produce the same price on the same build. That keeps demos stable while still making each product feel distinct.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:24%;background:linear-gradient(180deg,#a78bfa,#ddd6fe)" data-label="low"></div>
+                    <div class="bar" style="height:72%;background:linear-gradient(180deg,#f59e0b,#fde68a)" data-label="high"></div>
+                    <div class="bar" style="height:52%;background:linear-gradient(180deg,#ef4444,#fecaca)" data-label="mixed"></div>
+                  </div>
+                </div>
+                <h3>Visible price variety</h3>
+                <p>The goal is to avoid a shelf where every item clusters around the same amount. Premium, mid-range, and budget-like products should all appear naturally in the same search.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Image generation</h2>
+                <p>How a query turns into a product illustration.</p>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="card">
+                <div class="frame">
+                  <div class="diagram">
+                    <div class="node" style="left:16px;top:18px;">Query words<small>signal terms from the search</small></div>
+                    <div class="node" style="right:16px;top:28px;">Shape family<small>phone, audio, package, capsule, and more</small></div>
+                    <div class="node" style="left:50%;bottom:18px;transform:translateX(-50%);">Variant seed<small>item-specific visual offset</small></div>
+                  </div>
+                </div>
+                <h3>Shape families, not just colors</h3>
+                <p>Images are generated as inline SVGs. The SVG picks a shape family from the item type and a second layout from the item seed, so cards differ in structure instead of only changing palette.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:58%;background:linear-gradient(180deg,#22c55e,#bbf7d0)" data-label="phone"></div>
+                    <div class="bar" style="height:84%;background:linear-gradient(180deg,#3b82f6,#bfdbfe)" data-label="package"></div>
+                    <div class="bar" style="height:44%;background:linear-gradient(180deg,#f43f5e,#fecdd3)" data-label="audio"></div>
+                  </div>
+                </div>
+                <h3>Keyword-aware routing</h3>
+                <p>Queries like phone or headphones route into different silhouette families. The system also avoids accidental substring matches, so headphones do not look like phones.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:30%;background:linear-gradient(180deg,#14b8a6,#99f6e4)" data-label="seed A"></div>
+                    <div class="bar" style="height:66%;background:linear-gradient(180deg,#8b5cf6,#ddd6fe)" data-label="seed B"></div>
+                    <div class="bar" style="height:94%;background:linear-gradient(180deg,#f59e0b,#fde68a)" data-label="seed C"></div>
+                  </div>
+                </div>
+                <h3>Stable per item</h3>
+                <p>Every product gets a deterministic SVG URL, so the same product stays visually consistent across cache hits while still looking different from its neighbors.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Product generation</h2>
+                <p>How we turn a search phrase into a shelf.</p>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="card">
+                <div class="frame">
+                  <div class="diagram">
+                    <div class="node" style="left:18px;top:16px;">Normal search<small>typos are corrected against English</small></div>
+                    <div class="node" style="right:16px;top:28px;">Intergalactic mode<small>keeps the original wording</small></div>
+                    <div class="node" style="left:50%;bottom:16px;transform:translateX(-50%);">Persona + market<small>shapes copy, reviews, and ranking</small></div>
+                  </div>
+                </div>
+                <h3>Intent first</h3>
+                <p>The generator starts with the user’s query, applies correction when needed, then picks a persona and product family. That yields titles, descriptions, reviews, and explanations that stay aligned with the search.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:70%;background:linear-gradient(180deg,#16a34a,#bbf7d0)" data-label="best fit"></div>
+                    <div class="bar" style="height:48%;background:linear-gradient(180deg,#2563eb,#bfdbfe)" data-label="fast sell"></div>
+                    <div class="bar" style="height:84%;background:linear-gradient(180deg,#d97706,#fde68a)" data-label="featured"></div>
+                  </div>
+                </div>
+                <h3>Generated once, reused often</h3>
+                <p>The first request generates a full collection, stores it, and future requests reuse the same shelf until the cache version changes. That keeps demos fast and predictable.</p>
+              </div>
+              <div class="card">
+                <div class="frame">
+                  <div class="mini-bars">
+                    <div class="bar" style="height:32%;background:linear-gradient(180deg,#f97316,#fed7aa)" data-label="normal"></div>
+                    <div class="bar" style="height:62%;background:linear-gradient(180deg,#7c3aed,#ddd6fe)" data-label="luxury"></div>
+                    <div class="bar" style="height:90%;background:linear-gradient(180deg,#0f766e,#99f6e4)" data-label="alien"></div>
+                  </div>
+                </div>
+                <h3>Different voices, same engine</h3>
+                <p>Normal mode sounds like a regular store. Intergalactic mode shifts the tone, reviews, and product naming, while still using the same generation pipeline underneath.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="footer">The catalog is synthetic, but the system behavior is deterministic and explainable.</div>
+      </div>
+    </div>
   </body>
 </html>`;
 }
@@ -1757,6 +2145,7 @@ export async function handleRequest(request, response) {
     if (request.method === "GET" && url.pathname === "/openapi.json") return json(response, 200, getOpenApiDocument(), { "cache-control": "no-store" });
     if (request.method === "GET" && url.pathname === "/docs") return html(response, 200, getDocsHtml(), { "cache-control": "no-store" });
     if (request.method === "GET" && url.pathname === "/economy") return html(response, 200, getEconomyHtml(), { "cache-control": "no-store" });
+    if (request.method === "GET" && url.pathname === "/mechanics") return html(response, 200, getMechanicsHtml(), { "cache-control": "no-store" });
     if (request.method === "POST" && url.pathname === "/api/users/register") return handleRegistration(request, response);
     if (request.method === "POST" && url.pathname === "/api/users/login") return handleLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/users/logout") return handleLogout(request, response);
