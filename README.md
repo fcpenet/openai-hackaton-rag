@@ -80,6 +80,21 @@ successful checkouts persist inventory depletion and sales activity, and mark
 the affected product as `observed`. If fewer curated products remain in stock,
 the API returns the available items instead of promoting sold-out products.
 
+## Economy Simulator
+
+The market layer is deterministic per product and per UTC day. For each item we
+derive a daily market snapshot from the product ID, the current day, its rating,
+and its price. That snapshot produces inventory, units sold, demand score,
+sales velocity, featured score, and a trend value. The same product will keep
+the same market state for the rest of the day, which makes the demo stable while
+still feeling alive.
+
+When a product is first seen on a day, its snapshot is stored as `seeded`.
+If a checkout touches that product, the inventory and sales counts are written
+back to the market table and the snapshot flips to `observed`, so featured and
+selling-fast shelves start to reflect actual in-app purchasing behavior. This
+means the catalog is fake, but the economy reacts like a real store.
+
 Checkout is auth-only. Add funds with `POST /api/wallet/topup`, add items with
 `POST /api/cart/items`, then `POST /api/checkout` to create an order. Order
 status and ETA are available from `/api/orders/:orderId/status`.

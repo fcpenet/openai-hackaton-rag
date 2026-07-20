@@ -205,7 +205,7 @@ function getOpenApiDocument() {
     info: {
       title: "Product Discovery Service",
       version: "0.1.0",
-      description: "On-demand product search and streaming API backed by Turso."
+      description: "On-demand product search and streaming API backed by Turso. Includes a deterministic UTC-day market simulator that tracks inventory, sales velocity, demand, and featured ranking."
     },
     servers: [{ url: "/" }],
     paths: {
