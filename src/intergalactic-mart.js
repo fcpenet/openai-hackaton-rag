@@ -30,9 +30,17 @@ function shuffled(random, items) {
 }
 
 function simulatedPrice(seedText) {
-  let value = 0;
-  for (const char of seedText) value = (value * 31 + char.charCodeAt(0)) >>> 0;
-  return 799 + (value % 120_000);
+  const random = seededRandom(hash(`price:${seedText}`));
+  const bands = [
+    { floor: 799, span: 8_000 },
+    { floor: 9_000, span: 18_000 },
+    { floor: 28_000, span: 32_000 },
+    { floor: 60_000, span: 55_000 },
+    { floor: 120_000, span: 95_000 },
+    { floor: 225_000, span: 160_000 }
+  ];
+  const band = bands[Math.floor(random() * bands.length)];
+  return band.floor + Math.floor(random() * band.span);
 }
 
 function createAlienQueryLabel(query) {

@@ -142,9 +142,17 @@ function resolvePersonaConfig(persona) {
 }
 
 function simulatedPrice(seedText) {
-  let value = 0;
-  for (const char of seedText) value = (value * 31 + char.charCodeAt(0)) >>> 0;
-  return 499 + (value % 75_000);
+  const random = seededRandom(hash(`price:${seedText}`));
+  const bands = [
+    { floor: 499, span: 4_500 },
+    { floor: 5_000, span: 10_000 },
+    { floor: 15_000, span: 18_000 },
+    { floor: 33_000, span: 28_000 },
+    { floor: 61_000, span: 48_000 },
+    { floor: 110_000, span: 90_000 }
+  ];
+  const band = bands[Math.floor(random() * bands.length)];
+  return band.floor + Math.floor(random() * band.span);
 }
 
 function buildDescription(baseLabel, category, useCase) {

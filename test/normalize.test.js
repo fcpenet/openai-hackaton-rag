@@ -59,6 +59,16 @@ test("gives every generated item distinct copy and artwork", () => {
   }
 });
 
+test("prices have a wider spread across a collection", () => {
+  for (const collection of [
+    createOnDemandCollection("iphone", 12),
+    createIntergalacticCollection("phone", 12)
+  ]) {
+    const prices = collection.map((product) => product.price.amount).sort((left, right) => left - right);
+    assert.ok(prices[prices.length - 1] - prices[0] >= 20_000);
+  }
+});
+
 test("headphones do not render as phone silhouettes", () => {
   const phoneSvg = decodeURIComponent(createProductImage("iPhone Pro", "compact smart phone", "phone-variant").replace("data:image/svg+xml,", ""));
   const headphoneSvg = decodeURIComponent(createProductImage("Wireless Headphones", "portable audio gear", "audio-variant").replace("data:image/svg+xml,", ""));
