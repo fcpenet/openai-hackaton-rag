@@ -44,4 +44,10 @@ test("serves OpenAPI document and docs page", async () => {
   assert.equal(docsResponse.statusCode, 200);
   assert.match(docsResponse.body, /SwaggerUIBundle/);
   assert.match(docsResponse.body, /\/openapi\.json/);
+
+  const economyResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/economy", headers: { host: "localhost:3000" } }, economyResponse);
+  assert.equal(economyResponse.statusCode, 200);
+  assert.match(economyResponse.body, /Real World Economy/);
+  assert.match(economyResponse.body, /Live market simulator/);
 });

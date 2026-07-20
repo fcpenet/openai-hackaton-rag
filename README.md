@@ -79,6 +79,8 @@ share a consistent in-world economy. New daily snapshots begin as `seeded`;
 successful checkouts persist inventory depletion and sales activity, and mark
 the affected product as `observed`. If fewer curated products remain in stock,
 the API returns the available items instead of promoting sold-out products.
+The separate `/economy` page shows the same market data in a richer dashboard
+layout, so it is a good place for demos and screenshots.
 
 ## Economy Simulator
 

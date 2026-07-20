@@ -962,6 +962,9 @@ function getDocsHtml() {
     </style>
   </head>
   <body>
+    <div style="position:fixed;top:14px;right:16px;z-index:10;font:600 12px/1.2 system-ui,sans-serif;">
+      <a href="/economy" style="color:#111827;text-decoration:none;border:1px solid #d1d5db;background:#fff;padding:10px 14px;border-radius:999px;box-shadow:0 4px 18px rgba(17,24,39,0.08);">Market view</a>
+    </div>
     <div id="swagger-ui"></div>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
@@ -972,6 +975,439 @@ function getDocsHtml() {
         deepLinking: true,
         presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
         layout: "BaseLayout"
+      });
+    </script>
+  </body>
+</html>`;
+}
+
+function getEconomyHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Market Simulator</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4efe3;
+        --panel: rgba(255, 251, 242, 0.9);
+        --panel-strong: #fff7ea;
+        --text: #171717;
+        --muted: #6b7280;
+        --border: rgba(23, 23, 23, 0.08);
+        --accent: #1f9d55;
+        --accent-2: #d97706;
+        --accent-3: #2563eb;
+        --accent-4: #7c3aed;
+        --shadow: 0 20px 70px rgba(17, 24, 39, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.42)),
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34%),
+          radial-gradient(circle at top right, rgba(31, 157, 85, 0.08), transparent 28%),
+          var(--bg);
+        color: var(--text);
+      }
+      a { color: inherit; }
+      .page {
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .shell {
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background:
+          linear-gradient(135deg, rgba(255, 247, 234, 0.88), rgba(255, 255, 255, 0.72)),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='420' viewBox='0 0 1200 420'%3E%3Cg fill='none' stroke='%23d9d4c8' stroke-opacity='.55'%3E%3Cpath d='M0 54H1200M0 118H1200M0 182H1200M0 246H1200M0 310H1200M0 374H1200'/%3E%3Cpath d='M118 18V402M264 18V402M410 18V402M556 18V402M702 18V402M848 18V402M994 18V402M1140 18V402'/%3E%3C/g%3E%3C/svg%3E") center/cover;
+        box-shadow: var(--shadow);
+      }
+      .hero-top {
+        display: flex;
+        gap: 20px;
+        justify-content: space-between;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent-2);
+      }
+      h1 {
+        margin: 8px 0 10px;
+        font-size: clamp(30px, 4vw, 54px);
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+      .lede {
+        max-width: 760px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .input {
+        min-width: min(420px, 100%);
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.88);
+        color: var(--text);
+        font: inherit;
+      }
+      .button {
+        padding: 14px 18px;
+        border: 0;
+        border-radius: 14px;
+        background: #171717;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .button.secondary {
+        background: #fff;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 22px;
+      }
+      .stat {
+        padding: 16px;
+        border-radius: 18px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+      }
+      .stat .label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .stat .value {
+        margin-top: 10px;
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 800;
+      }
+      .stat .sub {
+        margin-top: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .bands {
+        margin-top: 22px;
+        display: grid;
+        gap: 18px;
+      }
+      .band {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 8px 40px rgba(17, 24, 39, 0.05);
+      }
+      .band-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        margin-bottom: 14px;
+      }
+      .band-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .band-head p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .card {
+        border-radius: 18px;
+        overflow: hidden;
+        background: var(--panel-strong);
+        border: 1px solid rgba(17, 24, 39, 0.07);
+      }
+      .art {
+        aspect-ratio: 1 / 0.84;
+        background: #fff8ec;
+      }
+      .art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .card-body {
+        padding: 14px;
+      }
+      .card-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .title {
+        margin: 0 0 8px;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+      .price {
+        font-size: 18px;
+        font-weight: 800;
+      }
+      .marketline {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        background: rgba(23, 23, 23, 0.06);
+      }
+      .pill.green { background: rgba(31, 157, 85, 0.12); color: #11683a; }
+      .pill.blue { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+      .pill.orange { background: rgba(217, 119, 6, 0.12); color: #b45309; }
+      .chart {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+        min-height: 140px;
+        padding-top: 8px;
+      }
+      .bar {
+        border-radius: 14px 14px 4px 4px;
+        background: linear-gradient(180deg, rgba(37, 99, 235, 0.92), rgba(37, 99, 235, 0.38));
+        position: relative;
+        min-height: 14px;
+      }
+      .bar::after {
+        content: attr(data-label);
+        position: absolute;
+        inset: auto 0 -22px 0;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .banner {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-top: 20px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: rgba(17, 24, 39, 0.94);
+        color: white;
+      }
+      .banner strong { display: block; font-size: 14px; margin-bottom: 4px; }
+      .banner span { color: rgba(255,255,255,0.74); font-size: 13px; }
+      .empty {
+        padding: 28px;
+        text-align: center;
+        color: var(--muted);
+      }
+      @media (max-width: 960px) {
+        .stats, .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .input { min-width: 0; flex: 1 1 100%; }
+      }
+      @media (max-width: 640px) {
+        .page { padding: 14px; }
+        .stats, .grid { grid-template-columns: 1fr; }
+        .hero { padding: 18px; border-radius: 20px; }
+        .band { padding: 16px; border-radius: 18px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="shell">
+        <section class="hero">
+          <div class="hero-top">
+            <div>
+              <div class="eyebrow">Live market simulator</div>
+              <h1>Real World Economy</h1>
+              <p class="lede">A separate dashboard for the in-world market simulation. Search a product intent, then watch inventory, sales velocity, featured rank, and trend update from the same data that powers the catalog.</p>
+            </div>
+            <div class="controls">
+              <input id="query" class="input" value="${new URLSearchParams().get("q") || "wireless headphones"}" placeholder="Search a product intent" />
+              <button id="load" class="button">Load market</button>
+              <a class="button secondary" href="/docs" style="text-decoration:none;display:inline-flex;align-items:center;">API docs</a>
+            </div>
+          </div>
+          <div class="stats" id="stats"></div>
+          <div class="banner">
+            <div style="font-size:22px;line-height:1;">◆</div>
+            <div>
+              <strong>How it works</strong>
+              <span>Every product gets a deterministic UTC-day market state. New checkouts can move items from seeded to observed, which makes the shelves feel alive without relying on random drift.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="bands">
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Market pulse</h2>
+                <p id="pulse-note">Current demand and inventory across the loaded shelf.</p>
+              </div>
+            </div>
+            <div class="chart" id="chart"></div>
+          </div>
+
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Featured shelf</h2>
+                <p>Highest featured scores for the selected intent.</p>
+              </div>
+            </div>
+            <div class="grid" id="featured"></div>
+          </div>
+
+          <div class="band">
+            <div class="band-head">
+              <div>
+                <h2>Fast movers</h2>
+                <p>Items with the strongest sales velocity today.</p>
+              </div>
+            </div>
+            <div class="grid" id="fast"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const currency = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 });
+
+      function aggregate(products) {
+        const totals = products.reduce((acc, product) => {
+          const market = product.market || {};
+          acc.inventory += Number(market.inventory || 0);
+          acc.salesVelocity += Number(market.salesVelocity || 0);
+          acc.demandScore += Number(market.demandScore || 0);
+          acc.featuredScore += Number(market.featuredScore || 0);
+          acc.seeded += market.source === "seeded" ? 1 : 0;
+          acc.observed += market.source === "observed" ? 1 : 0;
+          return acc;
+        }, { inventory: 0, salesVelocity: 0, demandScore: 0, featuredScore: 0, seeded: 0, observed: 0 });
+        const count = Math.max(products.length, 1);
+        return {
+          inventory: Math.round(totals.inventory / count),
+          salesVelocity: Math.round(totals.salesVelocity / count),
+          demandScore: Math.round(totals.demandScore / count),
+          featuredScore: Math.round(totals.featuredScore / count),
+          seeded: totals.seeded,
+          observed: totals.observed
+        };
+      }
+
+      function statTemplate(label, value, sub) {
+        return \`<div class="stat"><div class="label">\${label}</div><div class="value">\${value}</div><div class="sub">\${sub}</div></div>\`;
+      }
+
+      function cardTemplate(product, accentClass = "") {
+        const market = product.market || {};
+        return \`
+          <article class="card">
+            <div class="art"><img src="\${product.imageUrl}" alt="\${product.title.replace(/"/g, "&quot;")}" /></div>
+            <div class="card-body">
+              <div class="card-top">
+                <span>\${product.category}</span>
+                <span>\${market.trend || "steady"}</span>
+              </div>
+              <h3 class="title">\${product.title}</h3>
+              <div class="price">\${currency.format(product.price.amount)}</div>
+              <div class="marketline">
+                <span class="pill green">\${market.salesVelocity || 0} velocity</span>
+                <span class="pill blue">\${market.demandScore || 0} demand</span>
+                <span class="pill orange">\${market.inventory || 0} stock</span>
+              </div>
+            </div>
+          </article>\`;
+      }
+
+      function renderBars(products) {
+        const chart = $("chart");
+        const max = Math.max(...products.map((product) => Number(product.market?.demandScore || 1)), 1);
+        chart.innerHTML = products.map((product, index) => {
+          const score = Number(product.market?.demandScore || 0);
+          const height = Math.max(18, Math.round((score / max) * 100));
+          return \`<div class="bar" style="height:\${height}%;background:linear-gradient(180deg, hsl(\${(index * 47) % 360} 70% 50%), rgba(37,99,235,.24));" data-label="\${product.market?.trend || "steady"}"></div>\`;
+        }).join("");
+      }
+
+      async function load() {
+        const query = $("query").value.trim() || "wireless headphones";
+        const [searchResponse, featuredResponse, fastResponse] = await Promise.all([
+          fetch(\`/api/products/search?q=\${encodeURIComponent(query)}&limit=12\`),
+          fetch(\`/api/products/featured?q=\${encodeURIComponent(query)}\`),
+          fetch(\`/api/products/selling-fast?q=\${encodeURIComponent(query)}\`)
+        ]);
+        const search = await searchResponse.json();
+        const featured = await featuredResponse.json();
+        const fast = await fastResponse.json();
+        const products = search.products || [];
+        const summary = aggregate(products);
+
+        $("stats").innerHTML = [
+          statTemplate("Avg inventory", summary.inventory, summary.observed + " observed, " + summary.seeded + " seeded"),
+          statTemplate("Avg sales velocity", summary.salesVelocity, "per UTC day"),
+          statTemplate("Avg demand score", summary.demandScore, "market pressure"),
+          statTemplate("Avg featured score", summary.featuredScore, "ranking signal")
+        ].join("");
+
+        $("pulse-note").textContent = query + " • " + products.length + " items in the loaded shelf";
+        renderBars(products.slice(0, 12));
+        $("featured").innerHTML = (featured.products || []).slice(0, 3).map((product) => cardTemplate(product)).join("") || '<div class="empty">No featured products found.</div>';
+        $("fast").innerHTML = (fast.products || []).slice(0, 6).map((product) => cardTemplate(product)).join("") || '<div class="empty">No fast movers found.</div>';
+      }
+
+      $("load").addEventListener("click", load);
+      $("query").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") load();
+      });
+      load().catch((error) => {
+        $("stats").innerHTML = '<div class="empty">Unable to load the market right now.</div>';
+        console.error(error);
       });
     </script>
   </body>
@@ -1318,6 +1754,7 @@ export async function handleRequest(request, response) {
     if (request.method === "GET" && url.pathname === "/health") return json(response, 200, { ok: true });
     if (request.method === "GET" && url.pathname === "/openapi.json") return json(response, 200, getOpenApiDocument(), { "cache-control": "no-store" });
     if (request.method === "GET" && url.pathname === "/docs") return html(response, 200, getDocsHtml(), { "cache-control": "no-store" });
+    if (request.method === "GET" && url.pathname === "/economy") return html(response, 200, getEconomyHtml(), { "cache-control": "no-store" });
     if (request.method === "POST" && url.pathname === "/api/users/register") return handleRegistration(request, response);
     if (request.method === "POST" && url.pathname === "/api/users/login") return handleLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/users/logout") return handleLogout(request, response);
