@@ -32,6 +32,22 @@ test("search response includes persona and explanation", async () => {
   assert.equal(body.products[0].persona, "luxury");
 });
 
+test("search corrects typos in normal mode but not in intergalactic mode", async () => {
+  const normalResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/api/products/search?q=Milkt%20Tea%20Cups&limit=1", headers: { host: "localhost:3000" } }, normalResponse);
+  const normalBody = JSON.parse(normalResponse.body);
+  assert.equal(normalResponse.statusCode, 200);
+  assert.match(normalBody.products[0].title.toLowerCase(), /milk tea cups/);
+  assert.equal(normalBody.provenance.originalQuery, "Milkt Tea Cups");
+
+  const alienResponse = createResponse();
+  await handleRequest({ method: "GET", url: "/api/products/search?q=Milkt%20Tea%20Cups&limit=1&not-suspicious=Hum^n", headers: { host: "localhost:3000" } }, alienResponse);
+  const alienBody = JSON.parse(alienResponse.body);
+  assert.equal(alienResponse.statusCode, 200);
+  assert.equal(alienBody.provenance.query, "Milkt Tea Cups");
+  assert.equal(alienBody.provenance.originalQuery, undefined);
+});
+
 test("shelf streams grouped rows and compare returns verdicts", async () => {
   const shelfResponse = createResponse();
   await handleRequest({ method: "GET", url: "/api/products/shelf?q=portable%20desk&limit=8&persona=minimalist", headers: { host: "localhost:3000" } }, shelfResponse);

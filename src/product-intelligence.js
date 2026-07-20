@@ -14,6 +14,65 @@ const personaHints = {
   minimalist: ["clean", "pared back", "simple", "quiet"]
 };
 
+const englishDictionary = [
+  "milk", "tea", "cup", "cups", "mug", "bottle", "bottles", "desk", "lamp", "chair", "table",
+  "book", "books", "guide", "manual", "notebook", "phone", "smartphone", "mobile", "android", "iphone",
+  "headphone", "headphones", "earbud", "earbuds", "speaker", "audio", "laptop", "computer", "keyboard",
+  "mouse", "monitor", "screen", "case", "cover", "charger", "cable", "bag", "backpack", "wallet",
+  "watch", "shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "shirt", "jacket", "dress",
+  "pouch", "pack", "kit", "bundle", "set", "accessory", "tool", "travel", "portable", "wireless",
+  "compact", "reliable", "useful", "practical", "clean", "simple", "quiet", "premium", "budget", "value",
+  "decent", "quality", "storage", "organizer", "adapter", "stand", "dock", "hub", "power", "light"
+];
+
+function levenshtein(left, right) {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const temp = previous[j];
+      const substitution = diagonal + (left[i - 1] === right[j - 1] ? 0 : 1);
+      const insertion = previous[j - 1] + 1;
+      const deletion = previous[j] + 1;
+      previous[j] = Math.min(substitution, insertion, deletion);
+      diagonal = temp;
+    }
+  }
+  return previous[right.length];
+}
+
+function correctWord(word) {
+  const cleaned = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!cleaned || cleaned.length < 3 || /\d/.test(cleaned)) return word;
+  let best = cleaned;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of englishDictionary) {
+    const distance = levenshtein(cleaned, candidate);
+    if (distance < bestDistance || (distance === bestDistance && candidate.length < best.length)) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  if (bestDistance <= 2 || (cleaned.length >= 6 && bestDistance <= 3)) return best;
+  return cleaned;
+}
+
+export function correctSearchQuery(query, persona = "normal") {
+  if (!query) return query;
+  if (normalizePersona(persona) === "intergalactic") return query;
+  return query
+    .split(/(\s+)/)
+    .map((part) => (/\s+/.test(part) ? part : correctWord(part)))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function normalizePersona(persona) {
   return Object.prototype.hasOwnProperty.call(personaLabels, persona) ? persona : "normal";
 }

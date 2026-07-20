@@ -82,6 +82,10 @@ the API returns the available items instead of promoting sold-out products.
 The separate `/economy` page shows the same market data in a richer dashboard
 layout, so it is a good place for demos and screenshots.
 
+Normal searches are spell-corrected against English before product generation,
+so typos like `Milkt Tea Cups` resolve to the nearest readable query. The
+hidden intergalactic mode keeps the original spelling intact.
+
 ## Economy Simulator
 
 The market layer is deterministic per product and per UTC day. For each item we

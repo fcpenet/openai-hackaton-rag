@@ -6,7 +6,7 @@ import { compareFeatured, compareSalesVelocity, enrichWithMarket } from "./marke
 import { MarketStore } from "./market-store.js";
 import { createOnDemandCollection } from "./on-demand-catalog.js";
 import { createProductImage, createReviews } from "./product-presentation.js";
-import { buildCompareVerdicts, buildShelfRows, normalizePersona, repairGeneratedProduct } from "./product-intelligence.js";
+import { buildCompareVerdicts, buildShelfRows, correctSearchQuery, normalizePersona, repairGeneratedProduct } from "./product-intelligence.js";
 import { normalizeEmail, validateRegistration } from "./users.js";
 
 const port = Number(process.env.PORT || 3000);
@@ -186,13 +186,14 @@ async function handleLogout(request, response) {
 }
 
 function parseSearch(url) {
-  const query = url.searchParams.get("q")?.trim();
+  const originalQuery = url.searchParams.get("q")?.trim();
   const requestedLimit = Number(url.searchParams.get("limit") || 12);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 12, 1), 50);
   const secretMode = url.searchParams.get("not-suspicious") === "Hum^n";
   const requestedPersona = url.searchParams.get("persona");
   const persona = secretMode ? "intergalactic" : normalizePersona(requestedPersona || "normal");
-  return { query, limit, secretMode, persona, hasExplicitPersona: Boolean(requestedPersona) };
+  const query = secretMode ? originalQuery : correctSearchQuery(originalQuery, persona);
+  return { query, originalQuery, limit, secretMode, persona, hasExplicitPersona: Boolean(requestedPersona) };
 }
 
 function defaultCuratedQuery(label, query) {
@@ -938,6 +939,7 @@ function getOpenApiDocument() {
           type: "object",
           properties: {
             query: { type: "string" },
+            originalQuery: { type: ["string", "null"], description: "Original search text before spell correction" },
             persona: { type: "string" },
             cached: { type: "boolean" }
           },
@@ -1414,7 +1416,7 @@ function getEconomyHtml() {
 </html>`;
 }
 
-async function resolveCollection(query, limit, persona = "normal") {
+async function resolveCollection(query, limit, persona = "normal", { originalQuery } = {}) {
   const catalog = await getCatalog();
   const collectionKey = `${persona}:${query}`;
   const cached = catalog ? await catalog.get(collectionKey) : undefined;
@@ -1457,7 +1459,7 @@ async function resolveCollection(query, limit, persona = "normal") {
     source: cached ? "catalog" : (persona === "intergalactic" ? "intergalactic-mart" : "on-demand-catalog"),
     cached,
     persona,
-    provenance: { query, persona, cached: Boolean(cached) }
+    provenance: { query, originalQuery: originalQuery && originalQuery !== query ? originalQuery : undefined, persona, cached: Boolean(cached) }
   };
 }
 
@@ -1471,7 +1473,7 @@ async function resolvePersonalizedCollection(request, url, minimumLimit = 0) {
     if (user) profile = await store.getProfile(user.id);
   }
   const persona = profile?.persona || search.persona;
-  const result = await resolveCollection(search.query, 50, persona);
+  const result = await resolveCollection(search.query, 50, persona, { originalQuery: search.originalQuery });
   const products = profile ? tailorProducts(result.products, profile) : result.products;
   return {
     ...result,

@@ -50,7 +50,7 @@ function illustration(title, description, variant) {
   const rotation = (value % 25) - 12;
   const badgeX = 44 + (value % 30);
   const badgeY = 44 + ((value >>> 8) % 30);
-  const layout = value % 8;
+  const layout = value % 12;
   const variantMark = `<g transform="rotate(${rotation} 200 170)"><circle cx="${badgeX}" cy="${badgeY}" r="24" fill="${accentLight}"/><path d="M${badgeX - 11} ${badgeY}h22M${badgeX} ${badgeY - 11}v22" stroke="${accent}" stroke-width="7" stroke-linecap="round"/></g>`;
   if (/\b(phone|smartphone|iphone|mobile|android)\b/.test(subject)) {
     return `<rect x="116" y="30" width="168" height="260" rx="24" fill="${neutral}"/><rect x="128" y="52" width="144" height="200" rx="12" fill="${accentLight}"/><rect x="142" y="66" width="116" height="170" rx="8" fill="${accentSoft}" opacity="0.75"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>${variantMark}`;
@@ -60,21 +60,29 @@ function illustration(title, description, variant) {
   }
   switch (layout) {
     case 0:
-      return `<rect x="86" y="90" width="228" height="172" rx="18" fill="${accent}"/><rect x="86" y="90" width="228" height="38" rx="18" fill="${accentDark}"/><path d="M86 131h228M200 90v172" stroke="#FFF7E8" stroke-width="12"/><circle cx="200" cy="176" r="26" fill="${accentLight}"/><path d="M164 90l36-32 36 32" fill="${accentSoft}" opacity="0.9"/>${variantMark}`;
+      return `<rect x="86" y="86" width="228" height="180" rx="20" fill="${accent}"/><rect x="112" y="112" width="176" height="96" rx="18" fill="${accentLight}"/><path d="M112 160h176" stroke="${accentDark}" stroke-width="10" stroke-linecap="round"/><circle cx="200" cy="160" r="28" fill="${accentSoft}"/>${variantMark}`;
     case 1:
-      return `<rect x="92" y="70" width="216" height="188" rx="24" fill="${accentDark}"/><rect x="112" y="88" width="176" height="112" rx="14" fill="${accentLight}"/><rect x="128" y="218" width="144" height="18" rx="9" fill="${accentSoft}"/><circle cx="200" cy="144" r="24" fill="${accent}"/><path d="M136 144h128" stroke="#FFF7E8" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
+      return `<rect x="108" y="58" width="184" height="224" rx="92" fill="${accentDark}"/><rect x="126" y="84" width="148" height="172" rx="74" fill="${accent}"/><circle cx="200" cy="170" r="38" fill="${accentLight}"/><path d="M164 170h72" stroke="${accentSoft}" stroke-width="12" stroke-linecap="round"/>${variantMark}`;
     case 2:
-      return `<path d="M120 86h160l24 40v120a18 18 0 0 1-18 18H114a18 18 0 0 1-18-18V126l24-40z" fill="${accent}"/><path d="M154 86h92l12 30H142z" fill="${accentDark}"/><circle cx="200" cy="174" r="32" fill="${accentLight}"/><rect x="166" y="212" width="68" height="16" rx="8" fill="${accentSoft}"/>${variantMark}`;
+      return `<path d="M92 106h216l-24 136H116z" fill="${accent}"/><path d="M126 106l24-30h100l24 30z" fill="${accentDark}"/><circle cx="154" cy="180" r="24" fill="${accentLight}"/><circle cx="246" cy="180" r="24" fill="${accentSoft}"/>${variantMark}`;
     case 3:
-      return `<ellipse cx="200" cy="168" rx="90" ry="116" fill="${accent}"/><path d="M132 98c22 16 46 24 68 24s46-8 68-24" fill="none" stroke="${accentDark}" stroke-width="16" stroke-linecap="round"/><rect x="154" y="208" width="92" height="30" rx="15" fill="${accentLight}"/><circle cx="200" cy="164" r="34" fill="${accentSoft}"/>${variantMark}`;
+      return `<rect x="84" y="92" width="232" height="144" rx="24" fill="${accentDark}"/><path d="M116 116h168l-18 28H134z" fill="${accent}"/><path d="M116 200h168" stroke="${accentSoft}" stroke-width="16" stroke-linecap="round"/><circle cx="200" cy="170" r="36" fill="${accentLight}"/>${variantMark}`;
     case 4:
-      return `<rect x="98" y="98" width="204" height="124" rx="20" fill="${accentDark}"/><rect x="110" y="78" width="184" height="20" rx="10" fill="${accentLight}"/><rect x="110" y="228" width="184" height="22" rx="11" fill="${accent}"/><path d="M118 126h164M118 154h164M118 182h164" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
+      return `<rect x="88" y="82" width="224" height="180" rx="18" fill="${accent}"/><path d="M88 116h224" stroke="${accentDark}" stroke-width="14"/><path d="M108 150h184M108 186h184" stroke="${accentSoft}" stroke-width="12" stroke-linecap="round"/><circle cx="132" cy="222" r="18" fill="${accentLight}"/><circle cx="200" cy="222" r="18" fill="${neutral}"/><circle cx="268" cy="222" r="18" fill="${accentLight}"/>${variantMark}`;
     case 5:
-      return `<rect x="126" y="50" width="148" height="220" rx="74" fill="${accent}"/><rect x="145" y="70" width="110" height="180" rx="55" fill="${accentDark}"/><path d="M162 112h76M162 148h76M162 184h76" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/><circle cx="200" cy="270" r="12" fill="${accentLight}"/>${variantMark}`;
+      return `<path d="M132 74h136l32 70-32 122H132L100 144z" fill="${accentDark}"/><path d="M160 104h80l18 40-18 72h-80l-18-72z" fill="${accent}"/><circle cx="200" cy="180" r="28" fill="${accentLight}"/><path d="M172 180h56" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
     case 6:
-      return `<path d="M90 110c0-18 14-32 32-32h156c18 0 32 14 32 32v100c0 18-14 32-32 32H122c-18 0-32-14-32-32z" fill="${accentDark}"/><path d="M118 96h164l18 34H100z" fill="${accent}"/><circle cx="148" cy="164" r="24" fill="${accentLight}"/><circle cx="212" cy="164" r="24" fill="${accentSoft}"/><circle cx="274" cy="164" r="18" fill="${neutral}"/>${variantMark}`;
+      return `<ellipse cx="200" cy="168" rx="122" ry="82" fill="${accent}"/><ellipse cx="200" cy="168" rx="78" ry="48" fill="${accentDark}"/><path d="M114 168h172" stroke="${accentSoft}" stroke-width="16" stroke-linecap="round"/><circle cx="200" cy="168" r="26" fill="${accentLight}"/><circle cx="150" cy="128" r="14" fill="${neutral}"/><circle cx="250" cy="208" r="14" fill="${neutral}"/>${variantMark}`;
+    case 7:
+      return `<path d="M108 96h184l18 28v124l-18 28H108l-18-28V124z" fill="${accentDark}"/><path d="M126 120h148l12 24-12 24H126l-12-24z" fill="${accent}"/><circle cx="152" cy="176" r="20" fill="${accentLight}"/><circle cx="200" cy="176" r="20" fill="${accentSoft}"/><circle cx="248" cy="176" r="20" fill="${neutral}"/>${variantMark}`;
+    case 8:
+      return `<path d="M106 210c14-60 54-98 94-98s80 38 94 98H106z" fill="${accent}"/><path d="M140 162c18-24 34-36 60-36s42 12 60 36" fill="none" stroke="${accentDark}" stroke-width="14" stroke-linecap="round"/><circle cx="200" cy="208" r="26" fill="${accentLight}"/><rect x="160" y="230" width="80" height="16" rx="8" fill="${accentSoft}"/>${variantMark}`;
+    case 9:
+      return `<rect x="90" y="78" width="220" height="184" rx="28" fill="${accent}"/><path d="M110 96h180l-24 26H134z" fill="${accentLight}"/><path d="M110 202h180" stroke="${accentDark}" stroke-width="18" stroke-linecap="round"/><circle cx="148" cy="160" r="22" fill="${accentSoft}"/><circle cx="252" cy="160" r="22" fill="${neutral}"/>${variantMark}`;
+    case 10:
+      return `<rect x="112" y="60" width="176" height="220" rx="20" fill="${accentDark}"/><rect x="126" y="76" width="148" height="138" rx="16" fill="${accentLight}"/><path d="M126 228h148" stroke="${accent}" stroke-width="12" stroke-linecap="round"/><circle cx="200" cy="152" r="34" fill="${accentSoft}"/>${variantMark}`;
     default:
-      return `<ellipse cx="200" cy="170" rx="116" ry="86" fill="${accent}"/><ellipse cx="200" cy="170" rx="82" ry="54" fill="${accentDark}"/><path d="M112 170h176" stroke="${accentSoft}" stroke-width="14" stroke-linecap="round"/><circle cx="200" cy="170" r="24" fill="${accentLight}"/><circle cx="146" cy="126" r="16" fill="${neutral}"/><circle cx="254" cy="214" r="16" fill="${neutral}"/>${variantMark}`;
+      return `<path d="M114 92h172l24 78-24 78H114l-24-78z" fill="${accent}"/><path d="M138 122h124l16 48-16 48H138l-16-48z" fill="${accentDark}"/><circle cx="200" cy="170" r="30" fill="${accentLight}"/><path d="M164 170h72" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
   }
 }
 
