@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Catalog } from "../src/catalog.js";
 import { createReviewText, createReviewTitle } from "../src/product-presentation.js";
 import { createIntergalacticCollection } from "../src/intergalactic-mart.js";
 import { createOnDemandCollection } from "../src/on-demand-catalog.js";
@@ -56,4 +57,22 @@ test("gives every generated item distinct copy and artwork", () => {
     assert.equal(new Set(collection.map((product) => product.description)).size, collection.length);
     assert.equal(new Set(collection.map((product) => product.imageUrl)).size, collection.length);
   }
+});
+
+test("purges legacy v2 catalog rows before using the cache", async () => {
+  const statements = [];
+  const client = {
+    async execute(statement) {
+      statements.push(statement);
+      if (typeof statement === "string") return { rows: [] };
+      if (statement.sql.startsWith("SELECT products_json")) return { rows: [] };
+      return { rows: [] };
+    }
+  };
+
+  const catalog = new Catalog({ client });
+  await catalog.get("portable desk");
+
+  assert.ok(statements.some((statement) => typeof statement === "object" && statement.sql === "DELETE FROM product_collections WHERE query LIKE ?"));
+  assert.deepEqual(statements.find((statement) => typeof statement === "object" && statement.sql === "DELETE FROM product_collections WHERE query LIKE ?").args, ["products:v2:%"]);
 });

@@ -12,6 +12,7 @@ export class Catalog {
   constructor({ client } = {}) {
     this.client = client || this.#createClient();
     this.setup = null;
+    this.legacyPurged = false;
   }
 
   async get(query) {
@@ -46,5 +47,12 @@ export class Catalog {
   async #ensureSetup() {
     if (!this.setup) this.setup = this.client.execute(setupSql);
     await this.setup;
+    if (!this.legacyPurged) {
+      this.legacyPurged = true;
+      await this.client.execute({
+        sql: "DELETE FROM product_collections WHERE query LIKE ?",
+        args: ["products:v2:%"]
+      });
+    }
   }
 }

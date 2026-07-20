@@ -44,17 +44,38 @@ function illustration(title, description, variant) {
   const value = hash(`${title}:${description || ""}:${variant || ""}`);
   const accent = `hsl(${value % 360} 68% 52%)`;
   const accentLight = `hsl(${(value + 42) % 360} 72% 78%)`;
+  const accentDark = `hsl(${(value + 18) % 360} 58% 34%)`;
+  const accentSoft = `hsl(${(value + 84) % 360} 54% 90%)`;
+  const neutral = `hsl(${(value + 132) % 360} 14% 32%)`;
   const rotation = (value % 25) - 12;
   const badgeX = 44 + (value % 30);
   const badgeY = 44 + ((value >>> 8) % 30);
+  const layout = value % 8;
   const variantMark = `<g transform="rotate(${rotation} 200 170)"><circle cx="${badgeX}" cy="${badgeY}" r="24" fill="${accentLight}"/><path d="M${badgeX - 11} ${badgeY}h22M${badgeX} ${badgeY - 11}v22" stroke="${accent}" stroke-width="7" stroke-linecap="round"/></g>`;
   if (/phone|smartphone|iphone/.test(subject)) {
-    return `<rect x="116" y="30" width="168" height="260" rx="24" fill="#24324A"/><rect x="128" y="52" width="144" height="200" rx="12" fill="${accentLight}"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>${variantMark}`;
+    return `<rect x="116" y="30" width="168" height="260" rx="24" fill="${neutral}"/><rect x="128" y="52" width="144" height="200" rx="12" fill="${accentLight}"/><rect x="142" y="66" width="116" height="170" rx="8" fill="${accentSoft}" opacity="0.75"/><circle cx="200" cy="270" r="9" fill="#F4F7FA"/>${variantMark}`;
   }
   if (/headphone|headset|earbud/.test(subject)) {
-    return `<path d="M100 205V155a100 100 0 0 1 200 0v50" fill="none" stroke="#24324A" stroke-width="26" stroke-linecap="round"/><rect x="75" y="190" width="56" height="78" rx="20" fill="${accent}"/><rect x="269" y="190" width="56" height="78" rx="20" fill="${accent}"/>${variantMark}`;
+    return `<path d="M100 205V155a100 100 0 0 1 200 0v50" fill="none" stroke="${neutral}" stroke-width="26" stroke-linecap="round"/><rect x="75" y="190" width="56" height="78" rx="20" fill="${accent}"/><rect x="269" y="190" width="56" height="78" rx="20" fill="${accentDark}"/><rect x="87" y="202" width="32" height="18" rx="9" fill="${accentSoft}"/><rect x="281" y="202" width="32" height="18" rx="9" fill="${accentSoft}"/>${variantMark}`;
   }
-  return `<rect x="86" y="78" width="228" height="184" rx="18" fill="${accent}"/><path d="M86 128h228M200 78v184" stroke="#FFF7E8" stroke-width="12"/><circle cx="200" cy="170" r="24" fill="${accentLight}"/>${variantMark}`;
+  switch (layout) {
+    case 0:
+      return `<rect x="86" y="90" width="228" height="172" rx="18" fill="${accent}"/><rect x="86" y="90" width="228" height="38" rx="18" fill="${accentDark}"/><path d="M86 131h228M200 90v172" stroke="#FFF7E8" stroke-width="12"/><circle cx="200" cy="176" r="26" fill="${accentLight}"/><path d="M164 90l36-32 36 32" fill="${accentSoft}" opacity="0.9"/>${variantMark}`;
+    case 1:
+      return `<rect x="92" y="70" width="216" height="188" rx="24" fill="${accentDark}"/><rect x="112" y="88" width="176" height="112" rx="14" fill="${accentLight}"/><rect x="128" y="218" width="144" height="18" rx="9" fill="${accentSoft}"/><circle cx="200" cy="144" r="24" fill="${accent}"/><path d="M136 144h128" stroke="#FFF7E8" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
+    case 2:
+      return `<path d="M120 86h160l24 40v120a18 18 0 0 1-18 18H114a18 18 0 0 1-18-18V126l24-40z" fill="${accent}"/><path d="M154 86h92l12 30H142z" fill="${accentDark}"/><circle cx="200" cy="174" r="32" fill="${accentLight}"/><rect x="166" y="212" width="68" height="16" rx="8" fill="${accentSoft}"/>${variantMark}`;
+    case 3:
+      return `<ellipse cx="200" cy="168" rx="90" ry="116" fill="${accent}"/><path d="M132 98c22 16 46 24 68 24s46-8 68-24" fill="none" stroke="${accentDark}" stroke-width="16" stroke-linecap="round"/><rect x="154" y="208" width="92" height="30" rx="15" fill="${accentLight}"/><circle cx="200" cy="164" r="34" fill="${accentSoft}"/>${variantMark}`;
+    case 4:
+      return `<rect x="98" y="98" width="204" height="124" rx="20" fill="${accentDark}"/><rect x="110" y="78" width="184" height="20" rx="10" fill="${accentLight}"/><rect x="110" y="228" width="184" height="22" rx="11" fill="${accent}"/><path d="M118 126h164M118 154h164M118 182h164" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/>${variantMark}`;
+    case 5:
+      return `<rect x="126" y="50" width="148" height="220" rx="74" fill="${accent}"/><rect x="145" y="70" width="110" height="180" rx="55" fill="${accentDark}"/><path d="M162 112h76M162 148h76M162 184h76" stroke="${accentSoft}" stroke-width="10" stroke-linecap="round"/><circle cx="200" cy="270" r="12" fill="${accentLight}"/>${variantMark}`;
+    case 6:
+      return `<path d="M90 110c0-18 14-32 32-32h156c18 0 32 14 32 32v100c0 18-14 32-32 32H122c-18 0-32-14-32-32z" fill="${accentDark}"/><path d="M118 96h164l18 34H100z" fill="${accent}"/><circle cx="148" cy="164" r="24" fill="${accentLight}"/><circle cx="212" cy="164" r="24" fill="${accentSoft}"/><circle cx="274" cy="164" r="18" fill="${neutral}"/>${variantMark}`;
+    default:
+      return `<ellipse cx="200" cy="170" rx="116" ry="86" fill="${accent}"/><ellipse cx="200" cy="170" rx="82" ry="54" fill="${accentDark}"/><path d="M112 170h176" stroke="${accentSoft}" stroke-width="14" stroke-linecap="round"/><circle cx="200" cy="170" r="24" fill="${accentLight}"/><circle cx="146" cy="126" r="16" fill="${neutral}"/><circle cx="254" cy="214" r="16" fill="${neutral}"/>${variantMark}`;
+  }
 }
 
 export function createProductImage(title, description, variant = "") {
