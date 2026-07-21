@@ -200,6 +200,7 @@ test("commerce routes require auth and support wallet-backed checkout", async ()
 
   const productResponse = await request("GET", "/api/products/search?q=portable%20desk&limit=1");
   const product = productResponse.json.products[0];
+  const checkoutAmount = (product.price.amount * 2) + 100000;
 
   const unauthenticated = await request("GET", "/api/cart");
   assert.equal(unauthenticated.statusCode, 401);
@@ -210,10 +211,10 @@ test("commerce routes require auth and support wallet-backed checkout", async ()
 
   const topUp = await request("POST", "/api/wallet/topup", {
     token: "session-token",
-    body: { amount: 100000, metadata: { source: "hackathon-demo" } }
+    body: { amount: checkoutAmount, metadata: { source: "hackathon-demo" } }
   });
   assert.equal(topUp.statusCode, 200);
-  assert.equal(topUp.json.balance, 100000);
+  assert.equal(topUp.json.balance, checkoutAmount);
 
   const addToCart = await request("POST", "/api/cart/items", {
     token: "session-token",
